@@ -1,0 +1,81 @@
+- name: Node deployment
+  hosts: nodes
+  become: true
+  gather_facts: false
+  
+  vars:
+    sing_box_version: "1.14.0"
+
+  tasks:
+    - name: Setup
+      tags:
+        - setup
+      block:
+        - name: Install dependencies
+          ansible.builtin.apt:
+            name:
+              - curl
+              - ca-certificates
+            update_cache: true
+            state: present
+
+        - name: Install sing-box
+          ansible.builtin.shell:
+            cmd: curl -fsSL https://sing-box.app/install.sh | sh -s -- --version {{ sing_box_version }}
+            creates: /usr/bin/sing-box
+
+        - name: Create environment file
+          ansible.builtin.copy:
+            content: |
+              SERVER_HOST={{ ansible_host }}
+            dest: /etc/default/node
+            mode: "0644"
+
+        - name: Generate Hysteria certificate
+          ansible.builtin.command:
+            cmd: >
+              openssl req -x509 -newkey rsa:2048 -nodes
+              -keyout /etc/sing-box/hy2_key.pem
+              -out /etc/sing-box/hy2_cert.pem
+              -days 3650
+              -subj /CN=vpn
+            creates: /etc/sing-box/hy2_cert.pem
+
+        - name: Set Hysteria key permissions
+          ansible.builtin.file:
+            path: /etc/sing-box/hy2_key.pem
+            mode: "0600"
+
+        - name: Set Hysteria cert permissions
+          ansible.builtin.file:
+            path: /etc/sing-box/hy2_cert.pem
+            mode: "0644"
+
+        - name: Copy systemd service
+          ansible.builtin.copy:
+            src:  artefacts/node.service
+            dest: /etc/systemd/system/node.service
+            mode: "0644"
+
+        - name: Enable service
+          ansible.builtin.systemd_service:
+            name: node
+            enabled: true
+            daemon_reload: true
+
+    - name: Deploy
+      tags:
+        - setup
+        - deploy
+      block:
+        - name: Copy binary
+          ansible.builtin.copy:
+            src: ../../bin/node
+            dest: /usr/local/bin/node
+            mode: "0755"
+
+        - name: Restart service
+          ansible.builtin.systemd_service:
+            name: node
+            state: restarted
+

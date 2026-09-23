@@ -1,0 +1,72 @@
+version: "3"
+
+vars:
+  INVENTORY: cd/ansible/inventory.ini
+  NODE_PLAYBOOK: cd/ansible/node.yml
+  CONTROL_PLAYBOOK: cd/ansible/control.yml
+
+tasks:
+  setup:
+    desc: Setup nodes
+    deps:
+      - build
+      - build-migrate
+    cmds:
+      - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}}  --tags setup
+      - ansible-playbook -i {{.INVENTORY}} {{.CONTROL_PLAYBOOK}}  --tags setup
+
+  deploy:
+    desc: Build and deploy nodes
+    deps: [build]
+    cmds:
+      - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}} --tags deploy
+      - ansible-playbook -i {{.INVENTORY}} {{.CONTROL_PLAYBOOK}} --tags deploy
+  build:
+    desc: Build Go binaries
+    deps: [generate]
+    cmds:
+      - mkdir -p bin
+      - go build -o bin/node ./cmd/node
+      - go build -o bin/control ./cmd/control
+  
+  generate:
+    desc: Generate code
+    cmds:
+      - task: clean 
+      - task: gen-api
+      - task: gen-enum    
+  
+  gen-api:
+    desc: Generate API
+    internal: true
+    cmds:
+      - mkdir -p gen
+      - buf generate
+      - buf generate --path api/control --template buf.swagger.control.yaml
+      - buf generate --path api/node --template buf.swagger.node.yaml
+  
+  gen-enum:
+    desc: Generate enums
+    internal: true
+    cmds:
+      - go generate ./...
+
+  build-migrate:
+    desc: Build golang-migrate CLI
+    cmds:
+      - mkdir -p bin
+      - GOBIN="$(pwd)/bin" go install -tags 'sqlite' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.0
+
+  clean:
+    desc: Clean generated files
+    cmds:
+      - find . -name '*.enum.gen.go' -delete
+      - rm -rf bin
+      - rm -rf gen
+      - rm -rf docs/swagger
+
+
+
+
+
+

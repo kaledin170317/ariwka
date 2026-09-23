@@ -1,0 +1,23 @@
+CREATE TABLE users (
+    id         TEXT PRIMARY KEY,
+    username   TEXT NOT NULL UNIQUE,
+    role       TEXT NOT NULL DEFAULT 'user',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE identities (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     TEXT NOT NULL,
+    provider    TEXT NOT NULL,
+    subject     TEXT NOT NULL,
+    secret_hash TEXT,
+
+    FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+    UNIQUE(provider, subject)
+);
+
+CREATE INDEX idx_identities_user_id
+    ON identities(user_id);

@@ -1,0 +1,85 @@
+- name: Control deployment
+  hosts: control
+  become: true
+  gather_facts: false
+  
+  tasks:
+    - name: Setup
+      tags:
+        - setup
+      block:
+        - name: Install dependencies
+          ansible.builtin.apt:
+            name:
+              - curl
+              - ca-certificates
+            update_cache: true
+            state: present
+    
+        - name: Copy systemd service
+          ansible.builtin.copy:
+            src:  artefacts/control.service
+            dest: /etc/systemd/system/control.service
+            mode: "0644"
+
+        - name: Enable service
+          ansible.builtin.systemd_service:
+            name: control
+            enabled: true
+            daemon_reload: true
+
+        - name: Create control data directory
+          ansible.builtin.file:
+            path: /var/lib/control
+            state: directory
+            mode: "0755"
+        
+        - name: Create migrations directory
+          ansible.builtin.file:
+            path: /usr/share/control/migrations
+            state: directory
+            mode: "0755"
+
+        - name: Copy migrate binary
+          ansible.builtin.copy:
+            src: ../../bin/migrate
+            dest: /usr/local/bin/migrate
+            mode: "0755"
+
+
+    - name: Deploy
+      tags:
+        - setup
+        - deploy
+      block:
+        - name: Copy binary
+          ansible.builtin.copy:
+            src: ../../bin/control
+            dest: /usr/local/bin/control
+            mode: "0755"
+
+        - name: Copy migrations
+          ansible.builtin.copy:
+            src: ../../migrations/control/
+            dest: /usr/share/control/migrations/
+            mode: "0644"
+        
+        - name: Apply database migrations
+          ansible.builtin.command:
+            argv:
+              - /usr/local/bin/migrate
+              - -path
+              - /usr/share/control/migrations
+              - -database
+              - sqlite:///var/lib/control/control.db
+              - up
+          register: migration
+          changed_when: >
+            'no change' not in migration.stdout | lower and
+            'no change' not in migration.stderr | lower
+        
+        - name: Restart service
+          ansible.builtin.systemd_service:
+            name: control
+            state: restarted
+

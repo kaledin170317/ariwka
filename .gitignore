@@ -1,0 +1,5 @@
+bin/
+gen/
+*.enum.gen.go
+buf.lock
+.idea

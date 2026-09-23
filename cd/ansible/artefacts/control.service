@@ -1,0 +1,11 @@
+[Unit]
+Description=VPN control Go Server
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/control
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

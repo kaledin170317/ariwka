@@ -1,0 +1,146 @@
+syntax = "proto3";
+
+package vpn.v1;
+
+option go_package = "vpn/gen/node;node";
+
+import "google/api/annotations.proto";
+
+service VPNService {
+
+  rpc AddRuleSet(AddRuleSetRequest) returns (AddRuleSetResponse) {
+    option (google.api.http) = {
+      post: "/rule_set"
+      body: "*"
+    };
+  }
+
+  rpc GetRuleSets(GetRuleSetsRequest) returns (GetRuleSetsResponse) {
+    option (google.api.http) = {
+      get: "/rule_set"
+    };
+  }
+
+  rpc AddRouteRule(AddRouteRuleRequest) returns (AddRouteRuleResponse) {
+    option (google.api.http) = {
+      post: "/route"
+      body: "*"
+    };
+  }
+
+  rpc GetInbounds(GetInboundsRequest) returns (GetInboundsResponse) {
+    option (google.api.http) = {
+      get: "/inbounds"
+    };
+  }
+  
+  rpc AddInbound(AddInboundRequest) returns (AddInboundResponse) {
+    option (google.api.http) = {
+      post: "/inbound"
+      body: "*"
+    };
+  }
+
+  rpc AddUser(AddUserRequest) returns (AddUserResponse) {
+    option (google.api.http) = {
+      post: "/user"
+      body: "*"
+    };
+  }
+  
+}
+
+message User {
+  string name = 1;
+  repeated string keys = 2;
+}
+
+message GetUsersRequest {}
+
+message GetUsersResponse {
+  repeated User users = 1;
+}
+
+
+message AddRuleSetRequest {
+  string name = 1;
+}
+
+message AddRuleSetResponse {}
+
+
+
+message GetRuleSetsRequest {}
+
+message GetRuleSetsResponse {
+  repeated string ruleSets = 1;
+}
+
+enum RouteAction {
+  ROUTE_ACTION_UNSPECIFIED = 0;
+  ROUTE_ACTION_REJECT = 1;
+  ROUTE_ACTION_ROUTE = 2;
+  ROUTE_ACTION_HIJACK_DNS = 3;
+  ROUTE_ACTION_SNIFF = 4;
+}
+
+message AddRouteRuleRequest {
+  optional string user = 1;
+  optional string rule_set = 2;
+  RouteAction action = 3;
+}
+
+message AddRouteRuleResponse{}
+
+
+message GetInboundsRequest{}
+
+message GetInboundsResponse{
+  repeated InboundConnection inbounds = 1;
+}
+
+message InboundConnection {
+  oneof connection {
+    Hysteria2Connection hysteria2 = 1;
+  }
+}
+
+message Hysteria2Connection {
+  string tag = 1;
+  string address = 2;
+  int32 port = 3;
+  ClientTLS tls = 4;
+  repeated Hysteria2User users = 5;
+}
+
+message Hysteria2User {
+  string name = 1;
+  string password = 2;
+}
+
+message ClientTLS {
+  bool enabled = 1;
+  string server_name = 2;
+  bool insecure = 3;
+}
+
+
+enum InboundType {
+  INBOUND_TYPE_UNSPECIFIED = 0;
+  INBOUND_TYPE_HYSTERIA2 = 1;
+}
+
+message AddInboundRequest {
+  string tag = 1;
+  InboundType type = 2;
+}
+
+message AddInboundResponse {}
+
+
+message AddUserRequest {
+  string user = 1;
+  string inbound = 2;
+}
+
+message AddUserResponse {}
