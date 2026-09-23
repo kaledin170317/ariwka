@@ -4,50 +4,13 @@ package vpn.v1;
 
 option go_package = "vpn/gen/node;node";
 
-import "google/api/annotations.proto";
-
 service VPNService {
-
-  rpc AddRuleSet(AddRuleSetRequest) returns (AddRuleSetResponse) {
-    option (google.api.http) = {
-      post: "/rule_set"
-      body: "*"
-    };
-  }
-
-  rpc GetRuleSets(GetRuleSetsRequest) returns (GetRuleSetsResponse) {
-    option (google.api.http) = {
-      get: "/rule_set"
-    };
-  }
-
-  rpc AddRouteRule(AddRouteRuleRequest) returns (AddRouteRuleResponse) {
-    option (google.api.http) = {
-      post: "/route"
-      body: "*"
-    };
-  }
-
-  rpc GetInbounds(GetInboundsRequest) returns (GetInboundsResponse) {
-    option (google.api.http) = {
-      get: "/inbounds"
-    };
-  }
-  
-  rpc AddInbound(AddInboundRequest) returns (AddInboundResponse) {
-    option (google.api.http) = {
-      post: "/inbound"
-      body: "*"
-    };
-  }
-
-  rpc AddUser(AddUserRequest) returns (AddUserResponse) {
-    option (google.api.http) = {
-      post: "/user"
-      body: "*"
-    };
-  }
-  
+  rpc AddRuleSet(AddRuleSetRequest) returns (AddRuleSetResponse);
+  rpc GetRuleSets(GetRuleSetsRequest) returns (GetRuleSetsResponse);
+  rpc AddRouteRule(AddRouteRuleRequest) returns (AddRouteRuleResponse);
+  rpc GetInbounds(GetInboundsRequest) returns (GetInboundsResponse);
+  rpc AddInbound(AddInboundRequest) returns (AddInboundResponse);
+  rpc AddUser(AddUserRequest) returns (AddUserResponse);
 }
 
 message User {

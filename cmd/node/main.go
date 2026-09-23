@@ -1,52 +1,40 @@
 package main
 
 import (
-	"context"
 	"log"
-	"net/http"
+	"net"
 
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
-	swaggerdocs "vpn/docs"
 	api "vpn/gen/node"
 	"vpn/internal/node/sing-box/handlers"
 	"vpn/internal/node/sing-box/service"
-	swaggerui "vpn/pkg/swagger"
+	"vpn/pkg/grpcui"
 )
 
 func main() {
 	singBox := service.NewSingBoxService()
-
-	if err := singBox.Sync(); err != nil {
+	err := singBox.Sync()
+	if err != nil {
 		log.Fatal(err)
 	}
 
-	vpnHandler := handlers.NewVPNHandler(singBox)
+	server := grpc.NewServer()
+	api.RegisterVPNServiceServer(server, handlers.NewVPNHandler(singBox))
+	reflection.Register(server)
 
-	// grpc-gateway
-	gatewayMux := runtime.NewServeMux()
-
-	if err := api.RegisterVPNServiceHandlerServer(
-		context.Background(),
-		gatewayMux,
-		vpnHandler,
-	); err != nil {
+	listener, err := net.Listen("tcp", ":9091")
+	if err != nil {
 		log.Fatal(err)
 	}
+	go func() {
+		err = server.Serve(listener)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
-	// Обычный HTTP mux
-	httpMux := http.NewServeMux()
-
-	// Swagger
-	swaggerui.Register(httpMux, swaggerdocs.Node)
-
-	// Все остальные запросы -> grpc-gateway
-	httpMux.Handle("/", gatewayMux)
-
-	log.Println("Listening on :8081")
-	log.Println("Swagger: http://localhost:8081/swagger/node/")
-
-	if err := http.ListenAndServe(":8081", httpMux); err != nil {
-		log.Fatal(err)
-	}
+	log.Println("gRPC :9091, grpcui http://localhost:8081")
+	log.Fatal(grpcui.Serve(":8081", "127.0.0.1:9091"))
 }

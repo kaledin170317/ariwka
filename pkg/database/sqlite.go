@@ -19,3 +19,7 @@ func Open(path string) (*sql.DB, error) {
 
 	return db, nil
 }
+
+func OpenControl() (*sql.DB, error) {
+	return Open("/var/lib/control/control.db")
+}

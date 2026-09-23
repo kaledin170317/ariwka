@@ -4,15 +4,17 @@ package control;
 
 option go_package = "vpn/gen/control;control";
 
-import "google/api/annotations.proto";
+import "control/user.proto";
 
 service AuthService {
-  rpc Login(LoginRequest) returns (LoginResponse) {
-    option (google.api.http) = {
-      post: "/auth/login"
-      body: "*"
-    };
-  }
+  rpc Register(RegisterRequest) returns (User);
+
+  rpc Login(LoginRequest) returns (LoginResponse);
+}
+
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
 }
 
 message LoginRequest {

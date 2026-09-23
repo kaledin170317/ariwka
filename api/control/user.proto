@@ -4,26 +4,9 @@ package control;
 
 option go_package = "vpn/gen/control;control";
 
-import "google/api/annotations.proto";
 
 service UserService {
-  rpc CreateUser(CreateUserRequest) returns (User) {
-    option (google.api.http) = {
-      post: "/users"
-      body: "*"
-    };
-  }
-
-  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {
-    option (google.api.http) = {
-      get: "/users"
-    };
-  }
-}
-
-message CreateUserRequest {
-  string username = 1;
-  string password = 2;
+  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse);
 }
 
 message User {

@@ -42,8 +42,6 @@ tasks:
     cmds:
       - mkdir -p gen
       - buf generate
-      - buf generate --path api/control --template buf.swagger.control.yaml
-      - buf generate --path api/node --template buf.swagger.node.yaml
   
   gen-enum:
     desc: Generate enums
@@ -63,8 +61,6 @@ tasks:
       - find . -name '*.enum.gen.go' -delete
       - rm -rf bin
       - rm -rf gen
-      - rm -rf docs/swagger
-
 
 
 
