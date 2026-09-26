@@ -46,14 +46,26 @@ func (s *SingBoxService) AddRoute(user *string, rule *string, action config.Rout
 	return s.cfg.AddRoute(user, rule, action)
 }
 
-func (s *SingBoxService) GetInbounds() []inbound.Inbound {
-	return s.cfg.GetInbouns()
+func (s *SingBoxService) GetInbounds() ([]inbound.Inbound, error) {
+	inbounds := s.cfg.GetInbouns()
+	for i := range inbounds {
+		if inbounds[i].Type == inbound.InboundTypeHysteria2 {
+			if err := inbounds[i].LoadCertificatePin(); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return inbounds, nil
 }
 
 func (s *SingBoxService) AddInbound(tag string, inboundType inbound.InboundType) error {
 	switch inboundType {
 	case inbound.InboundTypeHysteria2:
-		return s.cfg.AddInbound(inbound.NewHysteria2(tag, 1488))
+		connection, err := inbound.NewHysteria2(tag, 1488)
+		if err != nil {
+			return err
+		}
+		return s.cfg.AddInbound(connection)
 	}
 	return fmt.Errorf("Unknowm type")
 }
@@ -72,5 +84,19 @@ func (s *SingBoxService) AddUser(user string, tag string) error {
 		}
 	}
 
+	return fmt.Errorf("failed to find inbound %q", tag)
+}
+
+func (s *SingBoxService) RemoveUser(user, tag string) error {
+	inbounds := s.cfg.GetInbouns()
+	for i := range inbounds {
+		if inbounds[i].Tag == tag {
+			err := inbounds[i].RemoveUser(user)
+			if err != nil {
+				return err
+			}
+			return s.cfg.Apply()
+		}
+	}
 	return fmt.Errorf("failed to find inbound %q", tag)
 }

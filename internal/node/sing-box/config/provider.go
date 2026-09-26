@@ -27,12 +27,7 @@ func (c *Config) Sync() error {
 		return err
 	}
 
-	err = json.Unmarshal(data, &c)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return json.Unmarshal(data, c)
 }
 
 func (c *Config) Apply() error {

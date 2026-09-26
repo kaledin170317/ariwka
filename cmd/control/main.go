@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 
@@ -12,6 +13,13 @@ import (
 	authhandlers "vpn/internal/control/auth/handlers"
 	authrepo "vpn/internal/control/auth/repo"
 	authservice "vpn/internal/control/auth/service"
+	confighandlers "vpn/internal/control/config/handlers"
+	configrepo "vpn/internal/control/config/repo"
+	configservice "vpn/internal/control/config/service"
+	nodehandlers "vpn/internal/control/node/handlers"
+	"vpn/internal/control/node/provider"
+	noderepo "vpn/internal/control/node/repo"
+	nodeservice "vpn/internal/control/node/service"
 	userhandlers "vpn/internal/control/user/handlers"
 	userrepo "vpn/internal/control/user/repo"
 	userservice "vpn/internal/control/user/service"
@@ -31,6 +39,14 @@ func main() {
 	jwt := auth.JWT{Secret: []byte(env.GetJWTSecret())}
 	usersDB := userrepo.SQLite{DB: db}
 	users := userservice.Service{Repo: usersDB}
+	nodes := nodeservice.Service{Repo: noderepo.SQLite{DB: db}}
+	nodeProvider, err := provider.New(context.Background(), nodes.Repo)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer nodeProvider.Close()
+	nodes.Provider = nodeProvider
+	configs := configservice.Service{Repo: configrepo.SQLite{DB: db}, Nodes: nodes, Users: users}
 	login := authservice.Service{
 		Repo:  authrepo.SQLite{DB: db},
 		JWT:   jwt,
@@ -40,6 +56,8 @@ func main() {
 	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(access.Intercept))
 	api.RegisterUserServiceServer(grpcServer, userhandlers.Users{Service: users})
 	api.RegisterAuthServiceServer(grpcServer, authhandlers.Auth{Service: login})
+	api.RegisterNodeServiceServer(grpcServer, nodehandlers.Nodes{Service: nodes})
+	api.RegisterConfigServiceServer(grpcServer, confighandlers.Configs{Service: configs})
 	reflection.Register(grpcServer)
 
 	listener, err := net.Listen("tcp", ":9092")

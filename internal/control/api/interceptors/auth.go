@@ -9,29 +9,27 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	api "vpn/gen/control"
+	usercontext "vpn/internal/control/user/context"
 	"vpn/internal/control/user/model"
 	"vpn/pkg/auth"
 )
 
-type userKey struct{}
+//go:generate go tool go-enum --marshal --output-suffix=.enum.gen
 
-func User(ctx context.Context) (model.User, bool) {
-	u, ok := ctx.Value(userKey{}).(model.User)
-	return u, ok
-}
+// ENUM(public, user, admin)
+type AccessLevel int32
 
-type role int
-
-const (
-	public role = iota
-	user
-	admin
-)
-
-var methods = map[string]role{
-	api.AuthService_Login_FullMethodName:    public,
-	api.AuthService_Register_FullMethodName: public,
-	api.UserService_GetUsers_FullMethodName: admin,
+var methods = map[string]AccessLevel{
+	api.AuthService_Login_FullMethodName:               AccessLevelPublic,
+	api.AuthService_Register_FullMethodName:            AccessLevelPublic,
+	api.UserService_GetUsers_FullMethodName:            AccessLevelAdmin,
+	api.NodeService_GetNodes_FullMethodName:            AccessLevelUser,
+	api.NodeService_AddNode_FullMethodName:             AccessLevelAdmin,
+	api.NodeService_DeleteNode_FullMethodName:          AccessLevelAdmin,
+	api.NodeService_GetNodeInbounds_FullMethodName:     AccessLevelAdmin,
+	api.ConfigService_CreateMyProfile_FullMethodName:   AccessLevelUser,
+	api.ConfigService_CreateUserProfile_FullMethodName: AccessLevelAdmin,
+	api.ConfigService_GetConfig_FullMethodName:         AccessLevelUser,
 }
 
 type Users interface {
@@ -46,9 +44,9 @@ type Auth struct {
 func (a Auth) Intercept(ctx context.Context, req any, info *grpc.UnaryServerInfo, next grpc.UnaryHandler) (any, error) {
 	access, ok := methods[info.FullMethod]
 	if !ok {
-		access = user
+		return nil, errors.New("access level not configured")
 	}
-	if access == public {
+	if access == AccessLevelPublic {
 		return next(ctx, req)
 	}
 
@@ -68,9 +66,9 @@ func (a Auth) Intercept(ctx context.Context, req any, info *grpc.UnaryServerInfo
 		return nil, err
 	}
 
-	if access == admin && u.Role != "admin" {
+	if access == AccessLevelAdmin && u.Role != "admin" {
 		return nil, errors.New("admin access required")
 	}
 
-	return next(context.WithValue(ctx, userKey{}, u), req)
+	return next(usercontext.WithUser(ctx, u), req)
 }

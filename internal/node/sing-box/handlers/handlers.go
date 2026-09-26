@@ -34,7 +34,10 @@ func (c *VPNHandler) AddRouteRule(ctx context.Context, in *api.AddRouteRuleReque
 }
 
 func (c *VPNHandler) GetInbounds(ctx context.Context, in *api.GetInboundsRequest) (*api.GetInboundsResponse, error) {
-	inbounds := c.service.GetInbounds()
+	inbounds, err := c.service.GetInbounds()
+	if err != nil {
+		return nil, err
+	}
 
 	resp := &api.GetInboundsResponse{
 		Inbounds: make([]*api.InboundConnection, 0, len(inbounds)),
@@ -62,6 +65,7 @@ func (c *VPNHandler) GetInbounds(ctx context.Context, in *api.GetInboundsRequest
 							Enabled:    connection.TLS.Enabled,
 							ServerName: connection.TLS.ServerName,
 							Insecure:   connection.TLS.Insecure,
+							PinSha256:  connection.TLS.PinSHA256,
 						},
 						Users: users,
 					},
@@ -78,5 +82,11 @@ func (c *VPNHandler) AddInbound(ctx context.Context, in *api.AddInboundRequest) 
 }
 
 func (c *VPNHandler) AddUser(ctx context.Context, in *api.AddUserRequest) (*api.AddUserResponse, error) {
-	return &api.AddUserResponse{}, c.service.AddUser(in.GetUser(), in.GetInbound())
+	err := c.service.AddUser(in.GetConfigId(), in.GetInbound())
+	return &api.AddUserResponse{}, err
+}
+
+func (c *VPNHandler) RemoveUser(ctx context.Context, in *api.RemoveUserRequest) (*api.RemoveUserResponse, error) {
+	err := c.service.RemoveUser(in.GetConfigId(), in.GetInbound())
+	return &api.RemoveUserResponse{}, err
 }

@@ -1,6 +1,9 @@
 package inbound
 
-import "vpn/pkg/env"
+import (
+	"vpn/pkg/cert"
+	"vpn/pkg/env"
+)
 
 //go:generate go tool go-enum --marshal --output-suffix=.enum.gen
 
@@ -34,6 +37,7 @@ type tls struct {
 	KeyPath         string `json:"key_path,omitempty"`
 	ServerName      string `json:"server_name,omitempty"`
 	Insecure        bool   `json:"insecure,omitempty"`
+	PinSHA256       string `json:"-"`
 }
 
 func (i *Inbound) GetType() string {
@@ -42,4 +46,13 @@ func (i *Inbound) GetType() string {
 
 func (i *Inbound) GetHost() string {
 	return env.GetServerHost()
+}
+
+func (i *Inbound) LoadCertificatePin() error {
+	pin, err := cert.CertificatePin(i.TLS.CertificatePath)
+	if err != nil {
+		return err
+	}
+	i.TLS.PinSHA256 = pin
+	return nil
 }

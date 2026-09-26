@@ -1,0 +1,12 @@
+CREATE TABLE nodes (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    address TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE profiles (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    inbound TEXT NOT NULL
+);

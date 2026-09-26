@@ -3,6 +3,8 @@ package inbound
 import (
 	"crypto/rand"
 	"fmt"
+
+	"vpn/pkg/cert"
 )
 
 const (
@@ -10,8 +12,12 @@ const (
 	keyPath  = "/etc/sing-box/hy2_key.pem"
 )
 
-func NewHysteria2(tag string, port int32) Inbound {
-	return Inbound{
+func NewHysteria2(tag string, port int32) (Inbound, error) {
+	certificate, err := cert.Read(certPath)
+	if err != nil {
+		return Inbound{}, err
+	}
+	i := Inbound{
 		Type:   InboundTypeHysteria2,
 		Tag:    tag,
 		Listen: "::",
@@ -23,8 +29,10 @@ func NewHysteria2(tag string, port int32) Inbound {
 			Enabled:         true,
 			CertificatePath: certPath,
 			KeyPath:         keyPath,
+			ServerName:      certificate.ServerName,
 		},
 	}
+	return i, nil
 }
 
 type hysteria2Strategy struct{}

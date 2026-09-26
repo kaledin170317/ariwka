@@ -21,5 +21,5 @@ func Open(path string) (*sql.DB, error) {
 }
 
 func OpenControl() (*sql.DB, error) {
-	return Open("/var/lib/control/control.db")
+	return Open("/var/lib/control/control.db?_pragma=foreign_keys(1)")
 }

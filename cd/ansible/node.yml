@@ -78,4 +78,3 @@
           ansible.builtin.systemd_service:
             name: node
             state: restarted
-
