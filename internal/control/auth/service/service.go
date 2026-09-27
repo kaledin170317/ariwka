@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"strconv"
+
+	"github.com/google/uuid"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -13,6 +16,7 @@ import (
 type Repository interface {
 	CreatePassword(context.Context, model.User, string) error
 	Password(context.Context, string) (string, string, error)
+	TelegramUser(context.Context, string, string) (string, error)
 }
 
 type Users interface {
@@ -54,4 +58,12 @@ func (s Service) Login(ctx context.Context, username, password string) (string, 
 		return "", errors.New("invalid credentials")
 	}
 	return s.JWT.Sign(id)
+}
+
+func (s Service) LoginTelegramUser(ctx context.Context, id int64) (string, error) {
+	userID, err := s.Repo.TelegramUser(ctx, strconv.FormatInt(id, 10), uuid.NewString())
+	if err != nil {
+		return "", err
+	}
+	return s.JWT.Sign(userID)
 }

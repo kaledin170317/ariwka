@@ -1,0 +1,54 @@
+- name: Telegram bot deployment
+  hosts: control
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Setup
+      tags:
+        - setup
+      block:
+        - name: Create bot configuration directory
+          ansible.builtin.file:
+            path: /etc/telegram-bot
+            state: directory
+            mode: "0700"
+
+        - name: Write bot configuration
+          ansible.builtin.copy:
+            content: |
+              TELEGRAM_BOT_TOKEN={{ telegram_bot_token }}
+              TELEGRAM_CONTROL_USERNAME=telegram-bot
+              TELEGRAM_CONTROL_PASSWORD=telegram-test
+              CONTROL_ADDRESS=127.0.0.1:9092
+            dest: /etc/telegram-bot/bot.env
+            mode: "0600"
+          no_log: true
+
+        - name: Copy systemd service
+          ansible.builtin.copy:
+            src: artefacts/telegram.service
+            dest: /etc/systemd/system/telegram.service
+            mode: "0644"
+
+        - name: Enable bot service
+          ansible.builtin.systemd_service:
+            name: telegram
+            enabled: true
+            daemon_reload: true
+
+    - name: Deploy
+      tags:
+        - setup
+        - deploy
+      block:
+        - name: Copy bot binary
+          ansible.builtin.copy:
+            src: ../../bin/telegram
+            dest: /usr/local/bin/telegram
+            mode: "0755"
+
+        - name: Restart bot service
+          ansible.builtin.systemd_service:
+            name: telegram
+            state: restarted

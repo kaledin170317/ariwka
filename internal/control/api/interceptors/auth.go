@@ -22,14 +22,16 @@ type AccessLevel int32
 var methods = map[string]AccessLevel{
 	api.AuthService_Login_FullMethodName:               AccessLevelPublic,
 	api.AuthService_Register_FullMethodName:            AccessLevelPublic,
+	api.AuthService_LoginTelegramUser_FullMethodName:   AccessLevelAdmin,
 	api.UserService_GetUsers_FullMethodName:            AccessLevelAdmin,
 	api.NodeService_GetNodes_FullMethodName:            AccessLevelUser,
 	api.NodeService_AddNode_FullMethodName:             AccessLevelAdmin,
 	api.NodeService_DeleteNode_FullMethodName:          AccessLevelAdmin,
-	api.NodeService_GetNodeInbounds_FullMethodName:     AccessLevelAdmin,
+	api.NodeService_GetNodeInbounds_FullMethodName:     AccessLevelUser,
 	api.ConfigService_CreateMyProfile_FullMethodName:   AccessLevelUser,
 	api.ConfigService_CreateUserProfile_FullMethodName: AccessLevelAdmin,
 	api.ConfigService_GetConfig_FullMethodName:         AccessLevelUser,
+	api.ConfigService_GetProfile_FullMethodName:        AccessLevelUser,
 }
 
 type Users interface {
@@ -69,6 +71,5 @@ func (a Auth) Intercept(ctx context.Context, req any, info *grpc.UnaryServerInfo
 	if access == AccessLevelAdmin && u.Role != "admin" {
 		return nil, errors.New("admin access required")
 	}
-
 	return next(usercontext.WithUser(ctx, u), req)
 }

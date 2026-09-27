@@ -12,6 +12,7 @@ import (
 
 type Repository interface {
 	Create(context.Context, model.Profile) error
+	Get(context.Context, string, string) (model.Profile, error)
 	List(context.Context, string) ([]model.Profile, error)
 }
 
@@ -69,4 +70,16 @@ func (s Service) Get(ctx context.Context, userID string) ([]string, error) {
 		connections = append(connections, link)
 	}
 	return connections, nil
+}
+
+func (s Service) GetProfile(ctx context.Context, userID, id string) (string, error) {
+	p, err := s.Repo.Get(ctx, userID, id)
+	if err != nil {
+		return "", err
+	}
+	node, err := s.Nodes.Get(p.NodeID)
+	if err != nil {
+		return "", err
+	}
+	return node.Config(ctx, p.ID, p.Inbound)
 }

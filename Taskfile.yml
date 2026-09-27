@@ -4,6 +4,7 @@ vars:
   INVENTORY: cd/ansible/inventory.ini
   NODE_PLAYBOOK: cd/ansible/node.yml
   CONTROL_PLAYBOOK: cd/ansible/control.yml
+  TELEGRAM_PLAYBOOK: cd/ansible/telegram.yml
 
 tasks:
   setup:
@@ -14,6 +15,7 @@ tasks:
     cmds:
       - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}}  --tags setup
       - ansible-playbook -i {{.INVENTORY}} {{.CONTROL_PLAYBOOK}}  --tags setup
+      - ansible-playbook -i {{.INVENTORY}} {{.TELEGRAM_PLAYBOOK}} --tags setup
 
   deploy:
     desc: Build and deploy nodes
@@ -21,6 +23,8 @@ tasks:
     cmds:
       - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}} --tags deploy
       - ansible-playbook -i {{.INVENTORY}} {{.CONTROL_PLAYBOOK}} --tags deploy
+      - ansible-playbook -i {{.INVENTORY}} {{.TELEGRAM_PLAYBOOK}} --tags deploy
+
   build:
     desc: Build Go binaries
     deps: [generate]
@@ -28,7 +32,8 @@ tasks:
       - mkdir -p bin
       - go build -o bin/node ./cmd/node
       - go build -o bin/control ./cmd/control
-  
+      - go build -o bin/telegram ./cmd/telegram
+
   generate:
     desc: Generate code
     cmds:
@@ -61,8 +66,6 @@ tasks:
       - find . -name '*.enum.gen.go' -delete
       - rm -rf bin
       - rm -rf gen
-
-
 
 
 

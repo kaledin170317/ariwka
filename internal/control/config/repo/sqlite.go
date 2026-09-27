@@ -21,6 +21,18 @@ func (r SQLite) Create(ctx context.Context, p model.Profile) error {
 	return err
 }
 
+func (r SQLite) Get(ctx context.Context, userID, id string) (model.Profile, error) {
+	var p model.Profile
+	err := sq.
+		Select("id", "user_id", "node_id", "inbound").
+		From("profiles").
+		Where(sq.Eq{"id": id, "user_id": userID}).
+		RunWith(r.DB).
+		QueryRowContext(ctx).
+		Scan(&p.ID, &p.UserID, &p.NodeID, &p.Inbound)
+	return p, err
+}
+
 func (r SQLite) List(ctx context.Context, userID string) ([]model.Profile, error) {
 	rows, err := sq.
 		Select("id", "user_id", "node_id", "inbound").

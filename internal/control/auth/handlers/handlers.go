@@ -24,3 +24,8 @@ func (h Auth) Register(ctx context.Context, req *api.RegisterRequest) (*api.User
 	}
 	return &api.User{Id: u.ID, Username: u.Username}, nil
 }
+
+func (h Auth) LoginTelegramUser(ctx context.Context, req *api.LoginTelegramUserRequest) (*api.LoginResponse, error) {
+	token, err := h.Service.LoginTelegramUser(ctx, req.GetTelegramId())
+	return &api.LoginResponse{Token: token}, err
+}

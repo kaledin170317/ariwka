@@ -32,3 +32,9 @@ func (h Configs) GetConfig(ctx context.Context, _ *api.GetConfigRequest) (*api.G
 	}
 	return &api.GetConfigResponse{Connections: connections}, nil
 }
+
+func (h Configs) GetProfile(ctx context.Context, req *api.GetProfileRequest) (*api.GetProfileResponse, error) {
+	u, _ := usercontext.User(ctx)
+	link, err := h.Service.GetProfile(ctx, u.ID, req.GetId())
+	return &api.GetProfileResponse{Connection: link}, err
+}

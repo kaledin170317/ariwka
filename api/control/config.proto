@@ -8,6 +8,7 @@ service ConfigService {
   rpc CreateMyProfile(CreateMyProfileRequest) returns (CreateProfileResponse);
   rpc CreateUserProfile(CreateUserProfileRequest) returns (CreateProfileResponse);
   rpc GetConfig(GetConfigRequest) returns (GetConfigResponse);
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
 }
 
 message CreateMyProfileRequest {
@@ -25,3 +26,6 @@ message CreateProfileResponse { string id = 1; }
 message GetConfigRequest {}
 
 message GetConfigResponse { repeated string connections = 1; }
+
+message GetProfileRequest { string id = 1; }
+message GetProfileResponse { string connection = 1; }

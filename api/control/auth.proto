@@ -10,6 +10,7 @@ service AuthService {
   rpc Register(RegisterRequest) returns (User);
 
   rpc Login(LoginRequest) returns (LoginResponse);
+  rpc LoginTelegramUser(LoginTelegramUserRequest) returns (LoginResponse);
 }
 
 message RegisterRequest {
@@ -24,4 +25,8 @@ message LoginRequest {
 
 message LoginResponse {
   string token = 1;
+}
+
+message LoginTelegramUserRequest {
+  int64 telegram_id = 1;
 }

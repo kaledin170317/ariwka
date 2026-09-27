@@ -14,7 +14,6 @@
               - curl
               - ca-certificates
               - openssl
-              - python3-bcrypt
             update_cache: true
             state: present
     
@@ -93,37 +92,6 @@
           changed_when: >
             'no change' not in migration.stdout | lower and
             'no change' not in migration.stderr | lower
-
-        - name: Setup administrator
-          ansible.builtin.command:
-            argv:
-              - python3
-              - -c
-              - |
-                import os, sqlite3, uuid, bcrypt
-
-                username = os.environ['ADMIN_USERNAME']
-                password = os.environ['ADMIN_PASSWORD']
-                if not username or not password:
-                    raise ValueError('admin credentials required')
-
-                with sqlite3.connect('/var/lib/control/control.db') as db:
-                    existing = db.execute('SELECT role FROM users WHERE username = ?', (username,)).fetchone()
-                    if existing:
-                        if existing[0] != 'admin':
-                            raise ValueError('username belongs to a regular user')
-                    else:
-                        user_id = str(uuid.uuid4())
-                        password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-                        db.execute('INSERT INTO users (id, username, role) VALUES (?, ?, ?)', (user_id, username, 'admin'))
-                        db.execute('INSERT INTO identities (user_id, provider, subject, secret_hash) VALUES (?, ?, ?, ?)', (user_id, 'password', username, password_hash))
-                        print('admin created')
-          environment:
-            ADMIN_USERNAME: "{{ control_admin_username }}"
-            ADMIN_PASSWORD: "{{ control_admin_password }}"
-          register: admin_creation
-          changed_when: "'admin created' in admin_creation.stdout"
-          no_log: true
 
     - name: Deploy
       tags:
