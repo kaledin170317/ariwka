@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"net"
+	"time"
 
 	"github.com/google/uuid"
 
+	common "vpn/gen/vpn/common/v1"
 	"vpn/internal/control/node/model"
 	"vpn/internal/control/node/provider"
 )
@@ -15,6 +17,9 @@ type Repository interface {
 	Create(context.Context, model.Node) error
 	Delete(context.Context, string) error
 	List(context.Context) ([]model.Node, error)
+	CreateInbound(context.Context, model.InboundConfig) error
+	DeleteInbound(context.Context, string) error
+	ListInbounds(context.Context, string) ([]model.InboundConfig, error)
 }
 
 type Service struct {
@@ -65,4 +70,34 @@ func (s Service) Inbounds(ctx context.Context, nodeID string) ([]model.Inbound, 
 		return nil, err
 	}
 	return node.Inbounds(ctx)
+}
+
+func (s Service) AddInbound(ctx context.Context, nodeID string, kind common.InboundType, port int32) (string, error) {
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return "", err
+	}
+
+	config := model.InboundConfig{
+		Tag:    uuid.NewString(),
+		NodeID: nodeID,
+		Type:   kind,
+		Port:   port,
+	}
+
+	err = s.Repo.CreateInbound(ctx, config)
+	if err != nil {
+		return "", err
+	}
+
+	err = node.AddInbound(ctx, config.Tag, kind, port)
+	if err != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		if cleanupErr := s.Repo.DeleteInbound(cleanupCtx, config.Tag); cleanupErr != nil {
+			return "", errors.Join(err, cleanupErr)
+		}
+		return "", err
+	}
+	return config.Tag, nil
 }

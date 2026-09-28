@@ -1,9 +1,8 @@
 package model
 
-//go:generate go tool go-enum --marshal --output-suffix=.enum.gen
+import common "vpn/gen/vpn/common/v1"
 
-// ENUM(hysteria2=1)
-type InboundType int32
+//go:generate go tool go-enum --marshal --output-suffix=.enum.gen
 
 // ENUM(reject=1, route, hijack-dns, sniff)
 type RouteAction int32
@@ -12,6 +11,13 @@ type Node struct {
 	ID      string
 	Name    string
 	Address string
+}
+
+type InboundConfig struct {
+	Tag    string
+	NodeID string
+	Type   common.InboundType
+	Port   int32
 }
 
 type Inbound struct {

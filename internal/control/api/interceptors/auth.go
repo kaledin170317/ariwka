@@ -28,6 +28,7 @@ var methods = map[string]AccessLevel{
 	api.NodeService_AddNode_FullMethodName:             AccessLevelAdmin,
 	api.NodeService_DeleteNode_FullMethodName:          AccessLevelAdmin,
 	api.NodeService_GetNodeInbounds_FullMethodName:     AccessLevelUser,
+	api.NodeService_AddNodeInbound_FullMethodName:      AccessLevelAdmin,
 	api.ConfigService_CreateMyProfile_FullMethodName:   AccessLevelUser,
 	api.ConfigService_CreateUserProfile_FullMethodName: AccessLevelAdmin,
 	api.ConfigService_GetConfig_FullMethodName:         AccessLevelUser,

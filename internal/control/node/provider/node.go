@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	api "vpn/gen/node"
+	common "vpn/gen/vpn/common/v1"
 	"vpn/internal/control/node/model"
 )
 
@@ -18,13 +19,8 @@ func (n *Node) RemoveUser(ctx context.Context, configID, inbound string) error {
 	return err
 }
 
-func (n *Node) AddInbound(ctx context.Context, tag string, kind model.InboundType) error {
-	if !kind.IsValid() {
-		return errors.New("unsupported inbound type")
-	}
-	_, err := n.client.AddInbound(ctx, &api.AddInboundRequest{
-		Tag: tag, Type: api.InboundType(kind),
-	})
+func (n *Node) AddInbound(ctx context.Context, tag string, kind common.InboundType, port int32) error {
+	_, err := n.client.AddInbound(ctx, &api.AddInboundRequest{Tag: tag, Type: kind, Port: port})
 	return err
 }
 

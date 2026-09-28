@@ -4,11 +4,14 @@ package control;
 
 option go_package = "vpn/gen/control;control";
 
+import "vpn/common/v1/common.proto";
+
 service NodeService {
   rpc AddNode(AddNodeRequest) returns (Node);
   rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
   rpc GetNodes(GetNodesRequest) returns (GetNodesResponse);
   rpc GetNodeInbounds(GetNodeInboundsRequest) returns (GetNodeInboundsResponse);
+  rpc AddNodeInbound(AddNodeInboundRequest) returns (AddNodeInboundResponse);
 }
 
 message Node {
@@ -30,6 +33,14 @@ message GetNodesResponse { repeated Node nodes = 1; }
 message GetNodeInboundsRequest { string node_id = 1; }
 message Inbound {
   string tag = 1;
-  string type = 2;
+  vpn.common.v1.InboundType type = 2;
+  int32 port = 3;
 }
 message GetNodeInboundsResponse { repeated Inbound inbounds = 1; }
+
+message AddNodeInboundRequest {
+  string node_id = 1;
+  vpn.common.v1.InboundType type = 2;
+  int32 port = 3;
+}
+message AddNodeInboundResponse { string tag = 1; }

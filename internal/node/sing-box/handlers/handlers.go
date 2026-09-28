@@ -78,7 +78,7 @@ func (c *VPNHandler) GetInbounds(ctx context.Context, in *api.GetInboundsRequest
 }
 
 func (c *VPNHandler) AddInbound(ctx context.Context, in *api.AddInboundRequest) (*api.AddInboundResponse, error) {
-	return &api.AddInboundResponse{}, c.service.AddInbound(in.GetTag(), inbound.InboundType(in.GetType()))
+	return &api.AddInboundResponse{}, c.service.AddInbound(in.GetTag(), in.GetType(), in.GetPort())
 }
 
 func (c *VPNHandler) AddUser(ctx context.Context, in *api.AddUserRequest) (*api.AddUserResponse, error) {

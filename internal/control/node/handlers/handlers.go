@@ -4,6 +4,7 @@ import (
 	"context"
 
 	api "vpn/gen/control"
+	common "vpn/gen/vpn/common/v1"
 	"vpn/internal/control/node/service"
 )
 
@@ -45,8 +46,18 @@ func (h Nodes) GetNodeInbounds(ctx context.Context, req *api.GetNodeInboundsRequ
 	resp := &api.GetNodeInboundsResponse{Inbounds: make([]*api.Inbound, 0, len(inbounds))}
 	for _, inbound := range inbounds {
 		if inbound.Hysteria2 != nil {
-			resp.Inbounds = append(resp.Inbounds, &api.Inbound{Tag: inbound.Tag, Type: "hysteria2"})
+			resp.Inbounds = append(resp.Inbounds, &api.Inbound{
+				Tag: inbound.Tag, Type: common.InboundType_INBOUND_TYPE_HYSTERIA2, Port: inbound.Hysteria2.Port,
+			})
 		}
 	}
 	return resp, nil
+}
+
+func (h Nodes) AddNodeInbound(ctx context.Context, req *api.AddNodeInboundRequest) (*api.AddNodeInboundResponse, error) {
+	tag, err := h.Service.AddInbound(ctx, req.GetNodeId(), req.GetType(), req.GetPort())
+	if err != nil {
+		return nil, err
+	}
+	return &api.AddNodeInboundResponse{Tag: tag}, nil
 }

@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	api "vpn/gen/control"
+	common "vpn/gen/vpn/common/v1"
 )
 
 type Control struct {
@@ -95,7 +96,9 @@ func (u User) Inbounds(ctx context.Context, nodeID string) ([]Inbound, error) {
 	}
 	inbounds := make([]Inbound, 0, len(resp.GetInbounds()))
 	for _, inbound := range resp.GetInbounds() {
-		inbounds = append(inbounds, Inbound{Tag: inbound.GetTag(), Type: inbound.GetType()})
+		if inbound.GetType() == common.InboundType_INBOUND_TYPE_HYSTERIA2 {
+			inbounds = append(inbounds, Inbound{Tag: inbound.GetTag(), Type: "hysteria2"})
+		}
 	}
 	return inbounds, nil
 }

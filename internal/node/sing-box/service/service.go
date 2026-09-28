@@ -1,10 +1,13 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 
+	common "vpn/gen/vpn/common/v1"
 	"vpn/internal/node/sing-box/config"
 	"vpn/internal/node/sing-box/model/inbound"
+	portcheck "vpn/pkg/port"
 )
 
 type SingBoxService struct {
@@ -58,16 +61,27 @@ func (s *SingBoxService) GetInbounds() ([]inbound.Inbound, error) {
 	return inbounds, nil
 }
 
-func (s *SingBoxService) AddInbound(tag string, inboundType inbound.InboundType) error {
-	switch inboundType {
-	case inbound.InboundTypeHysteria2:
-		connection, err := inbound.NewHysteria2(tag, 1488)
-		if err != nil {
-			return err
-		}
-		return s.cfg.AddInbound(connection)
+func (s *SingBoxService) AddInbound(tag string, kind common.InboundType, port int32) error {
+	if err := portcheck.CheckUDP(port); err != nil {
+		return err
 	}
-	return fmt.Errorf("Unknowm type")
+
+	var (
+		connection inbound.Inbound
+		err        error
+	)
+
+	switch kind {
+	case common.InboundType_INBOUND_TYPE_HYSTERIA2:
+		connection, err = inbound.NewHysteria2(tag, port)
+	default:
+		return errors.New("unsupported inbound type")
+	}
+
+	if err != nil {
+		return err
+	}
+	return s.cfg.AddInbound(connection)
 }
 
 func (s *SingBoxService) AddUser(user string, tag string) error {

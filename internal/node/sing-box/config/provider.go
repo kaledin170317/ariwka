@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -31,6 +32,25 @@ func (c *Config) Sync() error {
 }
 
 func (c *Config) Apply() error {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+	applyErr := c.apply()
+
+	if applyErr != nil {
+		err = os.WriteFile(configPath, data, 0644)
+		if err != nil {
+			return err
+		}
+
+		return errors.Join(applyErr, err, c.Sync())
+	}
+
+	return nil
+}
+
+func (c *Config) apply() error {
 	f, err := os.Create(tmpConfigPath)
 	if err != nil {
 		return err
