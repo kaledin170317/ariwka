@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package vpn.common;
+
+option go_package = "vpn/gen/vpn/common;common";
+
+enum VlessTransportType {
+  VLESS_TRANSPORT_TYPE_UNSPECIFIED = 0;
+  VLESS_TRANSPORT_TYPE_GRPC = 1;
+  VLESS_TRANSPORT_TYPE_HTTP = 2;
+}
+
+message VlessTransportOptions {
+  VlessTransportType type = 1;
+  string host = 2;
+  string path = 3;
+}
+
+message VlessTransport {
+  VlessTransportType type = 1;
+  string service_name = 2;
+  string host = 3;
+  string path = 4;
+}
+
+message Inbound {
+  string tag = 1;
+  string address = 2;
+  int32 port = 3;
+  oneof details {
+    Hysteria2Inbound hysteria2 = 4;
+    VlessInbound vless = 5;
+  }
+}
+
+message Hysteria2Inbound {
+  string server_name = 1;
+  bool insecure = 2;
+  string pin_sha256 = 3;
+}
+
+message VlessInbound {
+  string server_name = 1;
+  string public_key = 2;
+  string short_id = 3;
+  VlessTransport transport = 4;
+}

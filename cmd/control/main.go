@@ -40,13 +40,19 @@ func main() {
 	usersDB := userrepo.SQLite{DB: db}
 	users := userservice.Service{Repo: usersDB}
 	nodes := nodeservice.Service{Repo: noderepo.SQLite{DB: db}}
+
 	nodeProvider, err := provider.New(context.Background(), nodes.Repo)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer nodeProvider.Close()
+
 	nodes.Provider = nodeProvider
-	configs := configservice.Service{Repo: configrepo.SQLite{DB: db}, Nodes: nodes, Users: users}
+	configs := configservice.Service{
+		Repo:  configrepo.SQLite{DB: db},
+		Nodes: nodes,
+		Users: users,
+	}
 	login := authservice.Service{
 		Repo:  authrepo.SQLite{DB: db},
 		JWT:   jwt,
@@ -64,6 +70,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	go func() {
 		err = grpcServer.Serve(listener)
 		if err != nil {

@@ -34,6 +34,7 @@ func New(ctx context.Context, repo Repository) (*Provider, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	p := &Provider{nodes: make(map[string]*Node, len(nodes))}
 	for _, node := range nodes {
 		err = p.Add(node)
@@ -42,6 +43,7 @@ func New(ctx context.Context, repo Repository) (*Provider, error) {
 			return nil, err
 		}
 	}
+
 	return p, nil
 }
 
@@ -54,30 +56,42 @@ func (p *Provider) Add(node model.Node) error {
 	if err != nil {
 		return err
 	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if old, ok := p.nodes[node.ID]; ok {
 		_ = old.conn.Close()
 	}
-	p.nodes[node.ID] = &Node{Node: node, client: api.NewVPNServiceClient(conn), conn: conn}
+
+	p.nodes[node.ID] = &Node{
+		Node:   node,
+		client: api.NewVPNServiceClient(conn),
+		conn:   conn,
+	}
+
 	return nil
 }
 
 func (p *Provider) Get(id string) (*Node, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+
 	node, ok := p.nodes[id]
 	if !ok {
 		return nil, errors.New("node not found")
 	}
+
 	return node, nil
 }
 
 func (p *Provider) Remove(id string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if node, ok := p.nodes[id]; ok {
 		_ = node.conn.Close()
+
 		delete(p.nodes, id)
 	}
 }
@@ -85,8 +99,10 @@ func (p *Provider) Remove(id string) {
 func (p *Provider) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	for id, node := range p.nodes {
 		_ = node.conn.Close()
+
 		delete(p.nodes, id)
 	}
 }

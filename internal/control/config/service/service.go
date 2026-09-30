@@ -3,8 +3,6 @@ package service
 import (
 	"context"
 
-	"github.com/google/uuid"
-
 	"vpn/internal/control/config/model"
 	"vpn/internal/control/node/provider"
 	usermodel "vpn/internal/control/user/model"
@@ -30,26 +28,40 @@ type Service struct {
 	Users Users
 }
 
-func (s Service) Create(ctx context.Context, userID, nodeID, inbound string) (string, error) {
+func (s Service) Create(ctx context.Context, userID, nodeID, inbound string) (string, string, error) {
 	_, err := s.Users.Get(ctx, userID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+
 	node, err := s.Nodes.Get(nodeID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	id := uuid.NewString()
-	err = node.AddUser(ctx, id, inbound)
+
+	created, id, err := node.AddUser(ctx, inbound)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	err = s.Repo.Create(ctx, model.Profile{ID: id, UserID: userID, NodeID: nodeID, Inbound: inbound})
+
+	connection, err := node.Link(created, id)
 	if err != nil {
 		_ = node.RemoveUser(ctx, id, inbound)
-		return "", err
+		return "", "", err
 	}
-	return id, nil
+
+	err = s.Repo.Create(ctx, model.Profile{
+		ID:      id,
+		UserID:  userID,
+		NodeID:  nodeID,
+		Inbound: inbound,
+	})
+	if err != nil {
+		_ = node.RemoveUser(ctx, id, inbound)
+		return "", "", err
+	}
+
+	return id, connection, nil
 }
 
 func (s Service) Get(ctx context.Context, userID string) ([]string, error) {
@@ -57,18 +69,22 @@ func (s Service) Get(ctx context.Context, userID string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	connections := make([]string, 0, len(profiles))
 	for _, p := range profiles {
 		node, err := s.Nodes.Get(p.NodeID)
 		if err != nil {
 			return nil, err
 		}
+
 		link, err := node.Config(ctx, p.ID, p.Inbound)
 		if err != nil {
 			return nil, err
 		}
+
 		connections = append(connections, link)
 	}
+
 	return connections, nil
 }
 
@@ -77,9 +93,11 @@ func (s Service) GetProfile(ctx context.Context, userID, id string) (string, err
 	if err != nil {
 		return "", err
 	}
+
 	node, err := s.Nodes.Get(p.NodeID)
 	if err != nil {
 		return "", err
 	}
+
 	return node.Config(ctx, p.ID, p.Inbound)
 }

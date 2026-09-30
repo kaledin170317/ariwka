@@ -17,11 +17,13 @@ func (r SQLite) CreatePassword(ctx context.Context, u model.User, hash string) e
 		Values(u.ID, "password", u.Username, hash).
 		RunWith(r.DB).
 		ExecContext(ctx)
+
 	return err
 }
 
 func (r SQLite) Password(ctx context.Context, username string) (string, string, error) {
 	var id, hash string
+
 	err := sq.
 		Select("u.id", "i.secret_hash").
 		From("identities i").
@@ -30,5 +32,6 @@ func (r SQLite) Password(ctx context.Context, username string) (string, string, 
 		RunWith(r.DB).
 		QueryRowContext(ctx).
 		Scan(&id, &hash)
+
 	return id, hash, err
 }

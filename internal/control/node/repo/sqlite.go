@@ -18,6 +18,7 @@ func (r SQLite) Create(ctx context.Context, n model.Node) error {
 		Values(n.ID, n.Name, n.Address).
 		RunWith(r.DB).
 		ExecContext(ctx)
+
 	return err
 }
 
@@ -27,6 +28,7 @@ func (r SQLite) Delete(ctx context.Context, id string) error {
 		Where(sq.Eq{"id": id}).
 		RunWith(r.DB).
 		ExecContext(ctx)
+
 	return err
 }
 
@@ -43,13 +45,17 @@ func (r SQLite) List(ctx context.Context) ([]model.Node, error) {
 	defer rows.Close()
 
 	nodes := make([]model.Node, 0)
+
 	for rows.Next() {
 		var n model.Node
+
 		err = rows.Scan(&n.ID, &n.Name, &n.Address)
 		if err != nil {
 			return nil, err
 		}
+
 		nodes = append(nodes, n)
 	}
+
 	return nodes, rows.Err()
 }

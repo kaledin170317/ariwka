@@ -1,61 +1,23 @@
 package inbound
 
-import (
-	"crypto/rand"
-	"fmt"
-
-	"vpn/pkg/cert"
-)
-
-const (
-	certPath = "/etc/sing-box/hy2_cert.pem"
-	keyPath  = "/etc/sing-box/hy2_key.pem"
-)
-
-func NewHysteria2(tag string, port int32) (Inbound, error) {
-	certificate, err := cert.Read(certPath)
-	if err != nil {
-		return Inbound{}, err
-	}
-	i := Inbound{
-		Type:   InboundTypeHysteria2,
-		Tag:    tag,
-		Listen: "::",
-		Port:   port,
-
-		Users: []user{},
-
-		TLS: &tls{
-			Enabled:         true,
-			CertificatePath: certPath,
-			KeyPath:         keyPath,
-			ServerName:      certificate.ServerName,
-		},
-	}
-	return i, nil
+type Hysteria2 struct {
+	Tag     string
+	Address string
+	Port    int32
+	TLS     TLS
+	Users   []Hysteria2User
 }
 
-type hysteria2Strategy struct{}
+func (h *Hysteria2) GetTag() string { return h.Tag }
+func (h *Hysteria2) GetPort() int32 { return h.Port }
 
-func (hysteria2Strategy) AddUser(inbound *Inbound, name string) error {
-	for _, user := range inbound.Users {
-		if user.Name == name {
-			return fmt.Errorf("user %q already exists", name)
-		}
-	}
-
-	inbound.Users = append(inbound.Users, user{Name: name, Password: rand.Text()})
-
-	return nil
+type Hysteria2User struct {
+	Name     string
+	Password string
 }
 
-func (hysteria2Strategy) RemoveUser(inbound *Inbound, name string) error {
-	for i, user := range inbound.Users {
-		if user.Name == name {
-			inbound.Users = append(inbound.Users[:i], inbound.Users[i+1:]...)
-			return nil
-		}
-	}
-
-	return fmt.Errorf("user %q not found", name)
+type TLS struct {
+	ServerName string
+	Insecure   bool
+	PinSHA256  string
 }

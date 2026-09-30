@@ -20,19 +20,20 @@ import (
 type AccessLevel int32
 
 var methods = map[string]AccessLevel{
-	api.AuthService_Login_FullMethodName:               AccessLevelPublic,
-	api.AuthService_Register_FullMethodName:            AccessLevelPublic,
-	api.AuthService_LoginTelegramUser_FullMethodName:   AccessLevelAdmin,
-	api.UserService_GetUsers_FullMethodName:            AccessLevelAdmin,
-	api.NodeService_GetNodes_FullMethodName:            AccessLevelUser,
-	api.NodeService_AddNode_FullMethodName:             AccessLevelAdmin,
-	api.NodeService_DeleteNode_FullMethodName:          AccessLevelAdmin,
-	api.NodeService_GetNodeInbounds_FullMethodName:     AccessLevelUser,
-	api.NodeService_AddNodeInbound_FullMethodName:      AccessLevelAdmin,
-	api.ConfigService_CreateMyProfile_FullMethodName:   AccessLevelUser,
-	api.ConfigService_CreateUserProfile_FullMethodName: AccessLevelAdmin,
-	api.ConfigService_GetConfig_FullMethodName:         AccessLevelUser,
-	api.ConfigService_GetProfile_FullMethodName:        AccessLevelUser,
+	api.AuthService_Login_FullMethodName:                   AccessLevelPublic,
+	api.AuthService_Register_FullMethodName:                AccessLevelPublic,
+	api.AuthService_LoginTelegramUser_FullMethodName:       AccessLevelAdmin,
+	api.UserService_GetUsers_FullMethodName:                AccessLevelAdmin,
+	api.NodeService_GetNodes_FullMethodName:                AccessLevelUser,
+	api.NodeService_AddNode_FullMethodName:                 AccessLevelAdmin,
+	api.NodeService_DeleteNode_FullMethodName:              AccessLevelAdmin,
+	api.NodeService_GetNodeInbounds_FullMethodName:         AccessLevelUser,
+	api.NodeService_AddNodeHysteria2Inbound_FullMethodName: AccessLevelAdmin,
+	api.NodeService_AddNodeVlessInbound_FullMethodName:     AccessLevelAdmin,
+	api.ConfigService_CreateMyProfile_FullMethodName:       AccessLevelUser,
+	api.ConfigService_CreateUserProfile_FullMethodName:     AccessLevelAdmin,
+	api.ConfigService_GetConfig_FullMethodName:             AccessLevelUser,
+	api.ConfigService_GetProfile_FullMethodName:            AccessLevelUser,
 }
 
 type Users interface {
@@ -49,11 +50,13 @@ func (a Auth) Intercept(ctx context.Context, req any, info *grpc.UnaryServerInfo
 	if !ok {
 		return nil, errors.New("access level not configured")
 	}
+
 	if access == AccessLevelPublic {
 		return next(ctx, req)
 	}
 
 	md, _ := metadata.FromIncomingContext(ctx)
+
 	values := md.Get("authorization")
 	if len(values) != 1 || !strings.HasPrefix(values[0], "Bearer ") {
 		return nil, errors.New("valid bearer token required")
@@ -72,5 +75,6 @@ func (a Auth) Intercept(ctx context.Context, req any, info *grpc.UnaryServerInfo
 	if access == AccessLevelAdmin && u.Role != "admin" {
 		return nil, errors.New("admin access required")
 	}
+
 	return next(usercontext.WithUser(ctx, u), req)
 }

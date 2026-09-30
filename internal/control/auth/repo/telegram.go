@@ -10,6 +10,7 @@ import (
 
 func (r SQLite) TelegramUser(ctx context.Context, subject, newID string) (string, error) {
 	var id string
+
 	err := sq.
 		Select("user_id").
 		From("identities").
@@ -26,6 +27,7 @@ func (r SQLite) TelegramUser(ctx context.Context, subject, newID string) (string
 		return "", err
 	}
 	defer tx.Rollback()
+
 	_, err = sq.
 		Insert("users").
 		Columns("id", "username", "role").
@@ -35,6 +37,7 @@ func (r SQLite) TelegramUser(ctx context.Context, subject, newID string) (string
 	if err != nil {
 		return "", err
 	}
+
 	_, err = sq.
 		Insert("identities").
 		Columns("user_id", "provider", "subject").
@@ -44,5 +47,6 @@ func (r SQLite) TelegramUser(ctx context.Context, subject, newID string) (string
 	if err != nil {
 		return "", err
 	}
+
 	return newID, tx.Commit()
 }

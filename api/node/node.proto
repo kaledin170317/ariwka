@@ -4,14 +4,16 @@ package vpn.v1;
 
 option go_package = "vpn/gen/node;node";
 
-import "vpn/common/v1/common.proto";
+import "vpn/common/common.proto";
 
 service VPNService {
   rpc AddRuleSet(AddRuleSetRequest) returns (AddRuleSetResponse);
   rpc GetRuleSets(GetRuleSetsRequest) returns (GetRuleSetsResponse);
   rpc AddRouteRule(AddRouteRuleRequest) returns (AddRouteRuleResponse);
   rpc GetInbounds(GetInboundsRequest) returns (GetInboundsResponse);
-  rpc AddInbound(AddInboundRequest) returns (AddInboundResponse);
+  rpc AddHysteria2Inbound(AddHysteria2InboundRequest) returns (AddHysteria2InboundResponse);
+  rpc AddVlessInbound(AddVlessInboundRequest) returns (AddVlessInboundResponse);
+  rpc RemoveInbound(RemoveInboundRequest) returns (RemoveInboundResponse);
   rpc AddUser(AddUserRequest) returns (AddUserResponse);
   rpc RemoveUser(RemoveUserRequest) returns (RemoveUserResponse);
 }
@@ -66,17 +68,9 @@ message GetInboundsResponse{
 }
 
 message InboundConnection {
-  oneof connection {
-    Hysteria2Connection hysteria2 = 1;
-  }
-}
-
-message Hysteria2Connection {
-  string tag = 1;
-  string address = 2;
-  int32 port = 3;
-  ClientTLS tls = 4;
-  repeated Hysteria2User users = 5;
+  vpn.common.Inbound inbound = 1;
+  repeated Hysteria2User hysteria2_users = 2;
+  repeated string vless_users = 3;
 }
 
 message Hysteria2User {
@@ -84,33 +78,49 @@ message Hysteria2User {
   string password = 2;
 }
 
-message ClientTLS {
-  bool enabled = 1;
+
+message AddHysteria2InboundRequest {
+  int32 port = 1;
+}
+
+message AddHysteria2InboundResponse {
+  vpn.common.Inbound inbound = 1;
+}
+
+message AddVlessInboundRequest {
+  int32 port = 1;
   string server_name = 2;
-  bool insecure = 3;
-  string pin_sha256 = 4;
+  vpn.common.VlessTransportOptions transport = 3;
 }
 
-
-message AddInboundRequest {
-  string tag = 1;
-  vpn.common.v1.InboundType type = 2;
-  int32 port = 3;
+message AddVlessInboundResponse {
+  vpn.common.Inbound inbound = 1;
 }
 
-message AddInboundResponse {}
+message RemoveInboundRequest { string tag = 1; }
+message RemoveInboundResponse {}
 
 
 message AddUserRequest {
-  string config_id = 1;
-  string inbound = 2;
+  string inbound_tag = 1;
 }
 
-message AddUserResponse {}
+message VlessUser {
+  string tag = 1;
+  string uuid = 2;
+}
+
+message AddUserResponse {
+  vpn.common.Inbound inbound = 1;
+  oneof credentials {
+    Hysteria2User hysteria2 = 2;
+    VlessUser vless = 3;
+  }
+}
 
 message RemoveUserRequest {
-  string config_id = 1;
-  string inbound = 2;
+  string tag = 1;
+  string inbound_tag = 2;
 }
 
 message RemoveUserResponse {}

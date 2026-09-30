@@ -22,7 +22,10 @@ message CreateUserProfileRequest {
   string inbound = 3;
 }
 
-message CreateProfileResponse { string id = 1; }
+message CreateProfileResponse {
+  string id = 1;
+  string connection = 2;
+}
 message GetConfigRequest {}
 
 message GetConfigResponse { repeated string connections = 1; }

@@ -18,11 +18,13 @@ func (r SQLite) Create(ctx context.Context, p model.Profile) error {
 		Values(p.ID, p.UserID, p.NodeID, p.Inbound).
 		RunWith(r.DB).
 		ExecContext(ctx)
+
 	return err
 }
 
 func (r SQLite) Get(ctx context.Context, userID, id string) (model.Profile, error) {
 	var p model.Profile
+
 	err := sq.
 		Select("id", "user_id", "node_id", "inbound").
 		From("profiles").
@@ -30,6 +32,7 @@ func (r SQLite) Get(ctx context.Context, userID, id string) (model.Profile, erro
 		RunWith(r.DB).
 		QueryRowContext(ctx).
 		Scan(&p.ID, &p.UserID, &p.NodeID, &p.Inbound)
+
 	return p, err
 }
 
@@ -45,14 +48,19 @@ func (r SQLite) List(ctx context.Context, userID string) ([]model.Profile, error
 		return nil, err
 	}
 	defer rows.Close()
+
 	profiles := make([]model.Profile, 0)
+
 	for rows.Next() {
 		var p model.Profile
+
 		err = rows.Scan(&p.ID, &p.UserID, &p.NodeID, &p.Inbound)
 		if err != nil {
 			return nil, err
 		}
+
 		profiles = append(profiles, p)
 	}
+
 	return profiles, rows.Err()
 }

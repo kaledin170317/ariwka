@@ -17,6 +17,7 @@ func (b telegram) render(ctx context.Context, chat, id int64, view screens.View)
 	if err != nil {
 		return err
 	}
+
 	values := url.Values{
 		"chat_id":      {strconv.FormatInt(chat, 10)},
 		"text":         {view.Text},
@@ -25,23 +26,32 @@ func (b telegram) render(ctx context.Context, chat, id int64, view screens.View)
 	}
 	if id != 0 {
 		values.Set("message_id", strconv.FormatInt(id, 10))
+
 		var result json.RawMessage
+
 		err = b.call(ctx, "editMessageText", values, &result)
 		if err == nil {
 			b.messages[chat] = id
 			return nil
 		}
+
 		if !errors.Is(err, errMessageMissing) {
 			return err
 		}
+
 		values.Del("message_id")
 	}
+
 	var message struct {
 		ID int64 `json:"message_id"`
 	}
-	if err := b.call(ctx, "sendMessage", values, &message); err != nil {
+
+	err = b.call(ctx, "sendMessage", values, &message)
+	if err != nil {
 		return err
 	}
+
 	b.messages[chat] = message.ID
+
 	return nil
 }

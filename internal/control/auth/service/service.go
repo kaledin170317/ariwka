@@ -53,10 +53,12 @@ func (s Service) Login(ctx context.Context, username, password string) (string, 
 	if err != nil {
 		return "", err
 	}
+
 	err = bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	if err != nil {
 		return "", errors.New("invalid credentials")
 	}
+
 	return s.JWT.Sign(id)
 }
 
@@ -65,5 +67,6 @@ func (s Service) LoginTelegramUser(ctx context.Context, id int64) (string, error
 	if err != nil {
 		return "", err
 	}
+
 	return s.JWT.Sign(userID)
 }

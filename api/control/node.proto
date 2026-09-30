@@ -4,14 +4,15 @@ package control;
 
 option go_package = "vpn/gen/control;control";
 
-import "vpn/common/v1/common.proto";
+import "vpn/common/common.proto";
 
 service NodeService {
   rpc AddNode(AddNodeRequest) returns (Node);
   rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
   rpc GetNodes(GetNodesRequest) returns (GetNodesResponse);
   rpc GetNodeInbounds(GetNodeInboundsRequest) returns (GetNodeInboundsResponse);
-  rpc AddNodeInbound(AddNodeInboundRequest) returns (AddNodeInboundResponse);
+  rpc AddNodeHysteria2Inbound(AddNodeHysteria2InboundRequest) returns (AddNodeHysteria2InboundResponse);
+  rpc AddNodeVlessInbound(AddNodeVlessInboundRequest) returns (AddNodeVlessInboundResponse);
 }
 
 message Node {
@@ -31,16 +32,18 @@ message GetNodesRequest {}
 message GetNodesResponse { repeated Node nodes = 1; }
 
 message GetNodeInboundsRequest { string node_id = 1; }
-message Inbound {
-  string tag = 1;
-  vpn.common.v1.InboundType type = 2;
-  int32 port = 3;
-}
-message GetNodeInboundsResponse { repeated Inbound inbounds = 1; }
 
-message AddNodeInboundRequest {
+message GetNodeInboundsResponse { repeated vpn.common.Inbound inbounds = 1; }
+
+message AddNodeHysteria2InboundRequest {
   string node_id = 1;
-  vpn.common.v1.InboundType type = 2;
-  int32 port = 3;
+  int32 port = 2;
 }
-message AddNodeInboundResponse { string tag = 1; }
+message AddNodeVlessInboundRequest {
+  string node_id = 1;
+  int32 port = 2;
+  string server_name = 3;
+  vpn.common.VlessTransportOptions transport = 4;
+}
+message AddNodeHysteria2InboundResponse { vpn.common.Inbound inbound = 1; }
+message AddNodeVlessInboundResponse { vpn.common.Inbound inbound = 1; }

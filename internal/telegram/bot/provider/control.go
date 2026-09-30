@@ -9,8 +9,13 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	api "vpn/gen/control"
-	common "vpn/gen/vpn/common/v1"
+	common "vpn/gen/vpn/common"
 )
+
+var transportNames = map[common.VlessTransportType]string{
+	common.VlessTransportType_VLESS_TRANSPORT_TYPE_GRPC: "grpc",
+	common.VlessTransportType_VLESS_TRANSPORT_TYPE_HTTP: "http",
+}
 
 type Control struct {
 	conn     *grpc.ClientConn
@@ -41,6 +46,7 @@ func Open(address, username, password string) (Control, error) {
 	if err != nil {
 		return Control{}, err
 	}
+
 	return Control{
 		conn: conn,
 		auth: api.NewAuthServiceClient(conn), configs: api.NewConfigServiceClient(conn),
@@ -53,20 +59,20 @@ func (c Control) Close() error { return c.conn.Close() }
 func (c Control) ForUser(ctx context.Context, telegramID int64) (User, error) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
+
 	admin, err := c.auth.Login(ctx, &api.LoginRequest{Username: c.username, Password: c.password})
 	if err != nil {
 		return User{}, err
 	}
+
 	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+admin.GetToken())
+
 	resp, err := c.auth.LoginTelegramUser(ctx, &api.LoginTelegramUserRequest{TelegramId: telegramID})
 	if err != nil {
 		return User{}, err
 	}
-	return User{control: c, token: resp.GetToken()}, nil
-}
 
-func (u User) context(ctx context.Context) context.Context {
-	return metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+u.token)
+	return User{control: c, token: resp.GetToken()}, nil
 }
 
 func (u User) Connections(ctx context.Context) ([]string, error) {
@@ -74,6 +80,7 @@ func (u User) Connections(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return resp.GetConnections(), nil
 }
 
@@ -82,10 +89,12 @@ func (u User) Nodes(ctx context.Context) ([]Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	nodes := make([]Node, 0, len(resp.GetNodes()))
 	for _, node := range resp.GetNodes() {
 		nodes = append(nodes, Node{ID: node.GetId(), Name: node.GetName()})
 	}
+
 	return nodes, nil
 }
 
@@ -94,12 +103,23 @@ func (u User) Inbounds(ctx context.Context, nodeID string) ([]Inbound, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	inbounds := make([]Inbound, 0, len(resp.GetInbounds()))
 	for _, inbound := range resp.GetInbounds() {
-		if inbound.GetType() == common.InboundType_INBOUND_TYPE_HYSTERIA2 {
+		if inbound.GetHysteria2() != nil {
 			inbounds = append(inbounds, Inbound{Tag: inbound.GetTag(), Type: "hysteria2"})
 		}
+
+		if v := inbound.GetVless(); v != nil {
+			kind := "vless"
+			if name := transportNames[v.GetTransport().GetType()]; name != "" {
+				kind += "/" + name
+			}
+
+			inbounds = append(inbounds, Inbound{Tag: inbound.GetTag(), Type: kind})
+		}
 	}
+
 	return inbounds, nil
 }
 
@@ -108,7 +128,8 @@ func (u User) CreateProfile(ctx context.Context, nodeID, tag string) (string, er
 	if err != nil {
 		return "", err
 	}
-	return resp.GetId(), nil
+
+	return resp.GetConnection(), nil
 }
 
 func (u User) Profile(ctx context.Context, id string) (string, error) {
@@ -116,5 +137,10 @@ func (u User) Profile(ctx context.Context, id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return resp.GetConnection(), nil
+}
+
+func (u User) context(ctx context.Context) context.Context {
+	return metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+u.token)
 }

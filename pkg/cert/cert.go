@@ -31,10 +31,12 @@ func Read(path string) (Info, error) {
 	}
 
 	sum := sha256.Sum256(cert.Raw)
+
 	info := Info{PinSHA256: hex.EncodeToString(sum[:]), ServerName: cert.Subject.CommonName}
 	if len(cert.DNSNames) > 0 {
 		info.ServerName = cert.DNSNames[0]
 	}
+
 	return info, nil
 }
 

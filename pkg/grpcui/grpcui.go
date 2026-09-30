@@ -20,5 +20,6 @@ func Serve(address, target string) error {
 	if err != nil {
 		return err
 	}
+
 	return http.ListenAndServe(address, handler)
 }

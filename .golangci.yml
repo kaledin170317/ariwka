@@ -1,7 +1,15 @@
 version: "2"
 
 linters:
+  disable:
+    - errcheck
+  enable:
+    - funcorder
+    - noinlineerr
+    - wsl_v5
   settings:
+    funcorder:
+      function: true
     staticcheck:
       checks:
         - all

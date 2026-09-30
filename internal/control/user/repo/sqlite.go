@@ -22,6 +22,7 @@ func (r SQLite) Create(ctx context.Context, u model.User) (model.User, error) {
 	if err != nil {
 		return model.User{}, err
 	}
+
 	err = sq.
 		Select("id", "username", "role").
 		From("users").
@@ -29,6 +30,7 @@ func (r SQLite) Create(ctx context.Context, u model.User) (model.User, error) {
 		RunWith(r.DB).
 		QueryRowContext(ctx).
 		Scan(&u.ID, &u.Username, &u.Role)
+
 	return u, err
 }
 
@@ -43,20 +45,26 @@ func (r SQLite) List(ctx context.Context) ([]model.User, error) {
 		return nil, err
 	}
 	defer rows.Close()
+
 	users := make([]model.User, 0)
+
 	for rows.Next() {
 		var u model.User
+
 		err = rows.Scan(&u.ID, &u.Username, &u.Role)
 		if err != nil {
 			return nil, err
 		}
+
 		users = append(users, u)
 	}
+
 	return users, rows.Err()
 }
 
 func (r SQLite) Get(ctx context.Context, id string) (model.User, error) {
 	var u model.User
+
 	err := sq.
 		Select("id", "username", "role").
 		From("users").
@@ -64,5 +72,6 @@ func (r SQLite) Get(ctx context.Context, id string) (model.User, error) {
 		RunWith(r.DB).
 		QueryRowContext(ctx).
 		Scan(&u.ID, &u.Username, &u.Role)
+
 	return u, err
 }

@@ -7,6 +7,13 @@ vars:
   TELEGRAM_PLAYBOOK: cd/ansible/telegram.yml
 
 tasks:
+  lint:
+    desc: Apply available lint fixes and show remaining issues
+    cmds:
+      - cmd: golangci-lint run --fix ./...
+        ignore_error: true
+      - golangci-lint run ./...
+
   setup:
     desc: Setup nodes
     deps:
@@ -66,6 +73,5 @@ tasks:
       - find . -name '*.enum.gen.go' -delete
       - rm -rf bin
       - rm -rf gen
-
 
 

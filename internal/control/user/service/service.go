@@ -17,7 +17,12 @@ type Repository interface {
 type Service struct{ Repo Repository }
 
 func (s Service) Create(ctx context.Context, username string) (model.User, error) {
-	u := model.User{ID: uuid.NewString(), Username: username, Role: "user"}
+	u := model.User{
+		ID:       uuid.NewString(),
+		Username: username,
+		Role:     "user",
+	}
+
 	return s.Repo.Create(ctx, u)
 }
 

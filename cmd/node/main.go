@@ -15,6 +15,7 @@ import (
 
 func main() {
 	singBox := service.NewSingBoxService()
+
 	err := singBox.Sync()
 	if err != nil {
 		log.Fatal(err)
@@ -28,6 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	go func() {
 		err = server.Serve(listener)
 		if err != nil {

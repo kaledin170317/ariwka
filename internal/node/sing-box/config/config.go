@@ -1,15 +1,17 @@
 package config
 
-import "vpn/internal/node/sing-box/model/inbound"
-
 //go:generate go tool go-enum --marshal --output-suffix=.enum.gen
 
 type Config struct {
-	Log       log               `json:"log,omitzero"`
-	DNS       dns               `json:"dns,omitzero"`
-	Inbounds  []inbound.Inbound `json:"inbounds,omitempty"`
-	Outbounds []outbound        `json:"outbounds,omitzero"`
-	Route     route             `json:"route,omitzero"`
+	file fileConfig
+}
+
+type fileConfig struct {
+	Log       log             `json:"log,omitzero"`
+	DNS       dns             `json:"dns,omitzero"`
+	Inbounds  []inboundConfig `json:"inbounds,omitempty"`
+	Outbounds []outbound      `json:"outbounds,omitzero"`
+	Route     route           `json:"route,omitzero"`
 }
 
 // Log section
@@ -48,8 +50,8 @@ type outbound struct {
 // Route section
 
 type route struct {
-	Rules   []RouteRule `json:"rules,omitempty"`
-	RuleSet []RuleSet   `json:"rule_set,omitempty"`
+	Rules   []routeRule `json:"rules,omitempty"`
+	RuleSet []ruleSet   `json:"rule_set,omitempty"`
 }
 
 // ENUM(inline, local, remote)
@@ -58,14 +60,14 @@ type RuleSetType string
 // ENUM(source, binary)
 type RuleSetFormat string
 
-type RuleSet struct {
+type ruleSet struct {
 	Type   RuleSetType   `json:"type"`
 	Tag    string        `json:"tag"`
 	Format RuleSetFormat `json:"format,omitempty"`
 	URL    string        `json:"url,omitempty"`
 }
 
-type RouteRule struct {
+type routeRule struct {
 	AuthUser []string    `json:"auth_user,omitempty"`
 	RuleSet  []string    `json:"rule_set,omitempty"`
 	Action   RouteAction `json:"action"`
