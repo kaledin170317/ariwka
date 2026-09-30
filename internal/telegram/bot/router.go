@@ -130,6 +130,8 @@ func (b telegram) action(ctx context.Context, userID, chat, id int64, data strin
 		view = profiles.Menu()
 	case data == "p:create":
 		view, err = p.NodesList(requestCtx)
+	case data == "p:subscription":
+		view, err = p.Subscription(requestCtx)
 	case strings.HasPrefix(data, "p:list:"):
 		page, parseErr := strconv.Atoi(strings.TrimPrefix(data, "p:list:"))
 		if parseErr != nil {

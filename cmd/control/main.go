@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -20,6 +21,7 @@ import (
 	"vpn/internal/control/node/provider"
 	noderepo "vpn/internal/control/node/repo"
 	nodeservice "vpn/internal/control/node/service"
+	"vpn/internal/control/subscription"
 	userhandlers "vpn/internal/control/user/handlers"
 	userrepo "vpn/internal/control/user/repo"
 	userservice "vpn/internal/control/user/service"
@@ -65,6 +67,10 @@ func main() {
 	api.RegisterNodeServiceServer(grpcServer, nodehandlers.Nodes{Service: nodes})
 	api.RegisterConfigServiceServer(grpcServer, confighandlers.Configs{Service: configs})
 	reflection.Register(grpcServer)
+
+	go func() {
+		log.Fatal(subscription.Serve(os.Getenv("SUBSCRIPTION_DOMAIN"), configs, users))
+	}()
 
 	listener, err := net.Listen("tcp", ":9092")
 	if err != nil {

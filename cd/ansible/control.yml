@@ -35,6 +35,12 @@
             state: directory
             mode: "0755"
 
+        - name: Create certificate cache directory
+          ansible.builtin.file:
+            path: /var/lib/control/certs
+            state: directory
+            mode: "0700"
+
         - name: Create control configuration directory
           ansible.builtin.file:
             path: /etc/control

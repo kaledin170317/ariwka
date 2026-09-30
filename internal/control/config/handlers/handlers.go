@@ -5,6 +5,7 @@ import (
 
 	api "vpn/gen/control"
 	"vpn/internal/control/config/service"
+	"vpn/internal/control/subscription"
 	usercontext "vpn/internal/control/user/context"
 )
 
@@ -48,4 +49,15 @@ func (h Configs) GetProfile(ctx context.Context, req *api.GetProfileRequest) (*a
 	link, err := h.Service.GetProfile(ctx, u.ID, req.GetId())
 
 	return &api.GetProfileResponse{Connection: link}, err
+}
+
+func (h Configs) GetSubscriptionLink(ctx context.Context, _ *api.GetSubscriptionLinkRequest) (*api.GetSubscriptionLinkResponse, error) {
+	u, _ := usercontext.User(ctx)
+
+	url, err := subscription.URL(u.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.GetSubscriptionLinkResponse{Url: url}, nil
 }

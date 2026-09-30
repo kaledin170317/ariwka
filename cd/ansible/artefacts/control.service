@@ -4,6 +4,7 @@ After=network-online.target
 
 [Service]
 EnvironmentFile=/etc/control/control.env
+Environment=SUBSCRIPTION_DOMAIN=ariwka.duckdns.org
 ExecStart=/usr/local/bin/control
 Restart=always
 RestartSec=2

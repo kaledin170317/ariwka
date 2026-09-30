@@ -84,6 +84,15 @@ func (u User) Connections(ctx context.Context) ([]string, error) {
 	return resp.GetConnections(), nil
 }
 
+func (u User) SubscriptionLink(ctx context.Context) (string, error) {
+	resp, err := u.control.configs.GetSubscriptionLink(u.context(ctx), &api.GetSubscriptionLinkRequest{})
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetUrl(), nil
+}
+
 func (u User) Nodes(ctx context.Context) ([]Node, error) {
 	resp, err := u.control.nodes.GetNodes(u.context(ctx), &api.GetNodesRequest{})
 	if err != nil {

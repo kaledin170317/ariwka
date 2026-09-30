@@ -9,6 +9,7 @@ service ConfigService {
   rpc CreateUserProfile(CreateUserProfileRequest) returns (CreateProfileResponse);
   rpc GetConfig(GetConfigRequest) returns (GetConfigResponse);
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+  rpc GetSubscriptionLink(GetSubscriptionLinkRequest) returns (GetSubscriptionLinkResponse);
 }
 
 message CreateMyProfileRequest {
@@ -32,3 +33,6 @@ message GetConfigResponse { repeated string connections = 1; }
 
 message GetProfileRequest { string id = 1; }
 message GetProfileResponse { string connection = 1; }
+
+message GetSubscriptionLinkRequest {}
+message GetSubscriptionLinkResponse { string url = 1; }
