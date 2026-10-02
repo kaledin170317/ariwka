@@ -22,7 +22,7 @@ func main() {
 	}
 
 	server := grpc.NewServer()
-	api.RegisterVPNServiceServer(server, handlers.NewVPNHandler(singBox))
+	api.RegisterVPNServiceServer(server, handlers.NewVPNHandler(&singBox))
 	reflection.Register(server)
 
 	listener, err := net.Listen("tcp", ":9091")

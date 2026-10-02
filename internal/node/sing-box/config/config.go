@@ -3,10 +3,6 @@ package config
 //go:generate go tool go-enum --marshal --output-suffix=.enum.gen
 
 type Config struct {
-	file fileConfig
-}
-
-type fileConfig struct {
 	Log       log             `json:"log,omitzero"`
 	DNS       dns             `json:"dns,omitzero"`
 	Inbounds  []inboundConfig `json:"inbounds,omitempty"`

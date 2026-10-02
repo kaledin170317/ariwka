@@ -11,12 +11,41 @@ service VPNService {
   rpc GetRuleSets(GetRuleSetsRequest) returns (GetRuleSetsResponse);
   rpc AddRouteRule(AddRouteRuleRequest) returns (AddRouteRuleResponse);
   rpc GetInbounds(GetInboundsRequest) returns (GetInboundsResponse);
-  rpc AddHysteria2Inbound(AddHysteria2InboundRequest) returns (AddHysteria2InboundResponse);
-  rpc AddVlessInbound(AddVlessInboundRequest) returns (AddVlessInboundResponse);
+  rpc AddInbound(AddInboundRequest) returns (AddInboundResponse);
   rpc RemoveInbound(RemoveInboundRequest) returns (RemoveInboundResponse);
   rpc AddUser(AddUserRequest) returns (AddUserResponse);
   rpc RemoveUser(RemoveUserRequest) returns (RemoveUserResponse);
+  rpc ModifyInbound(ModifyInboundRequest) returns (ModifyInboundResponse);
+  rpc ModifyUser(ModifyUserRequest) returns (ModifyUserResponse);
 }
+
+message ModifyInboundRequest {
+  string tag = 1;
+  repeated InboundOption options = 2;
+}
+message InboundOption {
+  oneof value {
+    int32 port = 1;
+    string server_name = 2;
+    vpn.common.VlessTransport transport = 3;
+    string private_key = 4;
+    string short_id = 5;
+  }
+}
+message ModifyInboundResponse {}
+
+message ModifyUserRequest {
+  string inbound_tag = 1;
+  string tag = 2;
+  repeated UserOption options = 3;
+}
+message UserOption {
+  oneof value {
+    string password = 1;
+    string uuid = 2;
+  }
+}
+message ModifyUserResponse {}
 
 message User {
   string name = 1;
@@ -71,6 +100,7 @@ message InboundConnection {
   vpn.common.Inbound inbound = 1;
   repeated Hysteria2User hysteria2_users = 2;
   repeated string vless_users = 3;
+  repeated VlessUser vless_user_details = 4;
 }
 
 message Hysteria2User {
@@ -79,21 +109,26 @@ message Hysteria2User {
 }
 
 
-message AddHysteria2InboundRequest {
-  int32 port = 1;
+message AddInboundRequest {
+  string tag = 1;
+  int32 port = 2;
+  oneof details {
+    Hysteria2InboundOptions hysteria2 = 3;
+    VlessInboundOptions vless = 4;
+  }
 }
 
-message AddHysteria2InboundResponse {
-  vpn.common.Inbound inbound = 1;
+message Hysteria2InboundOptions {}
+
+message VlessInboundOptions {
+  string server_name = 1;
+  vpn.common.VlessTransportOptions transport = 2;
+  string private_key = 3;
+  string short_id = 4;
+  string service_name = 5;
 }
 
-message AddVlessInboundRequest {
-  int32 port = 1;
-  string server_name = 2;
-  vpn.common.VlessTransportOptions transport = 3;
-}
-
-message AddVlessInboundResponse {
+message AddInboundResponse {
   vpn.common.Inbound inbound = 1;
 }
 
@@ -103,6 +138,10 @@ message RemoveInboundResponse {}
 
 message AddUserRequest {
   string inbound_tag = 1;
+  oneof credentials {
+    VlessUser vless = 2;
+    Hysteria2User hysteria2 = 3;
+  }
 }
 
 message VlessUser {

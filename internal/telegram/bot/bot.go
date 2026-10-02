@@ -141,7 +141,7 @@ func Run(ctx context.Context, token, username, password, address string) error {
 				log.Print(err)
 				time.Sleep(3 * time.Second)
 
-				continue
+				updates = nil
 			}
 		}
 

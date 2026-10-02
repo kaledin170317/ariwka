@@ -16,10 +16,9 @@ tasks:
 
   setup:
     desc: Setup nodes
-    deps:
-      - build
-      - build-migrate
+    deps: [build]
     cmds:
+      - task: build-migrate
       - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}}  --tags setup
       - ansible-playbook -i {{.INVENTORY}} {{.CONTROL_PLAYBOOK}}  --tags setup
       - ansible-playbook -i {{.INVENTORY}} {{.TELEGRAM_PLAYBOOK}} --tags setup
@@ -28,6 +27,7 @@ tasks:
     desc: Build and deploy nodes
     deps: [build]
     cmds:
+      - task: build-migrate
       - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}} --tags deploy
       - ansible-playbook -i {{.INVENTORY}} {{.CONTROL_PLAYBOOK}} --tags deploy
       - ansible-playbook -i {{.INVENTORY}} {{.TELEGRAM_PLAYBOOK}} --tags deploy
@@ -73,5 +73,4 @@ tasks:
       - find . -name '*.enum.gen.go' -delete
       - rm -rf bin
       - rm -rf gen
-
 

@@ -31,10 +31,15 @@ type Node struct {
 }
 
 type InboundConfig struct {
-	Tag    string
-	NodeID string
-	Type   InboundType
-	Port   int32
+	Tag         string
+	NodeID      string
+	Type        InboundType
+	Port        int32
+	ServerName  string
+	Transport   VlessTransportOptions
+	ServiceName string
+	PrivateKey  string
+	ShortID     string
 }
 
 type Inbound struct {
@@ -44,13 +49,19 @@ type Inbound struct {
 }
 
 type Vless struct {
-	Address    string
-	Port       int32
-	ServerName string
-	PublicKey  string
-	ShortID    string
-	Transport  VlessTransport
-	Users      []string
+	Address     string
+	Port        int32
+	ServerName  string
+	PublicKey   string
+	ShortID     string
+	Transport   VlessTransport
+	Users       []string
+	UserDetails []VlessUser
+}
+
+type VlessUser struct {
+	Tag  string
+	UUID string
 }
 
 type Hysteria2 struct {

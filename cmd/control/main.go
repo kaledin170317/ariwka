@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -55,6 +57,24 @@ func main() {
 		Nodes: nodes,
 		Users: users,
 	}
+
+	go func() {
+		for {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			inboundErr := nodes.SyncInbounds(ctx)
+			userErr := configs.SyncUsers(ctx)
+
+			cancel()
+
+			syncErr := errors.Join(inboundErr, userErr)
+			if syncErr != nil {
+				log.Printf("node sync: %v", syncErr)
+			}
+
+			time.Sleep(time.Minute)
+		}
+	}()
+
 	login := authservice.Service{
 		Repo:  authrepo.SQLite{DB: db},
 		JWT:   jwt,

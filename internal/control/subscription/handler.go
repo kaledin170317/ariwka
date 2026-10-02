@@ -63,8 +63,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Profile-Title", "VPN")
-	w.Header().Set("Profile-Update-Interval", "1")
 
-	_, _ = w.Write([]byte(strings.Join(connections, "\n") + "\n"))
+	lines := append(metadata.Lines(), connections...)
+	_, _ = w.Write([]byte(strings.Join(lines, "\n") + "\n"))
 }

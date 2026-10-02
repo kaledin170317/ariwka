@@ -33,7 +33,7 @@
           ansible.builtin.file:
             path: /var/lib/control
             state: directory
-            mode: "0755"
+            mode: "0700"
 
         - name: Create certificate cache directory
           ansible.builtin.file:

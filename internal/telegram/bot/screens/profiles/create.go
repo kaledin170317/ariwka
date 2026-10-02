@@ -60,22 +60,20 @@ func (s Service) Create(ctx context.Context, nodeID, key string) (screens.View, 
 	}
 
 	for _, inbound := range inbounds {
-		if inboundKey(inbound.Tag) != key {
-			continue
-		}
+		if inboundKey(inbound.Tag) == key {
+			connection, err := s.User.CreateProfile(ctx, nodeID, inbound.Tag)
+			if err != nil {
+				return screens.View{}, err
+			}
 
-		connection, err := s.User.CreateProfile(ctx, nodeID, inbound.Tag)
-		if err != nil {
-			return screens.View{}, err
-		}
+			view := screens.View{
+				Text:    "Профиль создан. Ссылка отправлена отдельным сообщением.",
+				Buttons: [][]screens.Button{{{Text: "← Профили", Data: "profiles"}}},
+			}
+			view.Notice = "<code>" + html.EscapeString(connection) + "</code>"
 
-		view := screens.View{
-			Text:    "Профиль создан. Ссылка отправлена отдельным сообщением.",
-			Buttons: [][]screens.Button{{{Text: "← Профили", Data: "profiles"}}},
+			return view, nil
 		}
-		view.Notice = "<code>" + html.EscapeString(connection) + "</code>"
-
-		return view, nil
 	}
 
 	return screens.View{Text: "Inbound больше недоступен. Выбери ноду заново.", Buttons: [][]screens.Button{{{Text: "← К нодам", Data: "p:create"}}}}, nil

@@ -1,12 +1,10 @@
 package config
 
 import (
-	"crypto/rand"
 	"encoding/base64"
-	"encoding/hex"
+	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	"golang.org/x/crypto/curve25519"
 
 	"vpn/internal/node/sing-box/model/inbound"
@@ -33,12 +31,6 @@ type inboundConfig struct {
 	Users     []userConfig `json:"users,omitempty"`
 	TLS       *inboundTLS  `json:"tls,omitempty"`
 	Transport *transport   `json:"transport,omitempty"`
-}
-
-type userConfig struct {
-	Name     string `json:"name"`
-	Password string `json:"password,omitempty"`
-	UUID     string `json:"uuid,omitempty"`
 }
 
 type inboundTLS struct {
@@ -69,7 +61,157 @@ type transport struct {
 	Path        string   `json:"path,omitempty"`
 }
 
-func newHysteria2(port int32) (inboundConfig, error) {
+type InboundOption interface {
+	inboundOption()
+}
+
+type PortOption int32
+
+func (PortOption) inboundOption() {}
+
+type ServerNameOption string
+
+func (ServerNameOption) inboundOption() {}
+
+type TransportOption struct {
+	Type, ServiceName, Host, Path string
+}
+
+func (TransportOption) inboundOption() {}
+
+type PrivateKeyOption string
+
+func (PrivateKeyOption) inboundOption() {}
+
+type ShortIDOption string
+
+func (ShortIDOption) inboundOption() {}
+
+func (c *Config) AddHysteria2Inbound(tag string, portNumber int32) (*inbound.Hysteria2, error) {
+	connection, err := newHysteria2(tag, portNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	created, err := c.addInbound(connection)
+	if err != nil {
+		return nil, err
+	}
+
+	return created.(*inbound.Hysteria2), nil
+}
+
+func (c *Config) AddVlessInbound(tag string, portNumber int32, serverName string, options inbound.VlessTransportOptions, privateKey, shortID, serviceName string) (*inbound.Vless, error) {
+	connection, err := newVless(tag, portNumber, serverName, options, privateKey, shortID, serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	created, err := c.addInbound(connection)
+	if err != nil {
+		return nil, err
+	}
+
+	return created.(*inbound.Vless), nil
+}
+
+func (c *Config) GetInbounds() ([]inbound.Connection, error) {
+	result := make([]inbound.Connection, 0, len(c.Inbounds))
+	for i := range c.Inbounds {
+		model, err := c.Inbounds[i].model()
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, model)
+	}
+
+	return result, nil
+}
+
+func (c *Config) RemoveInbound(tag string) error {
+	for i, connection := range c.Inbounds {
+		if connection.Tag == tag {
+			c.Inbounds = append(c.Inbounds[:i], c.Inbounds[i+1:]...)
+
+			return c.Apply()
+		}
+	}
+
+	return fmt.Errorf("failed to find inbound %q", tag)
+}
+
+func (c *Config) ModifyInbound(tag string, options []InboundOption) error {
+	for i := range c.Inbounds {
+		current := &c.Inbounds[i]
+		if current.Tag == tag {
+			for _, option := range options {
+				switch value := option.(type) {
+				case PortOption:
+					current.Port = int32(value)
+				case ServerNameOption:
+					current.TLS.ServerName = string(value)
+					if current.TLS.Reality != nil {
+						current.TLS.Reality.Handshake.Server = string(value)
+					}
+				case TransportOption:
+					current.Transport = &transport{
+						Type:        value.Type,
+						ServiceName: value.ServiceName,
+						Path:        value.Path,
+					}
+					if value.Host != "" {
+						current.Transport.Host = []string{value.Host}
+					}
+				case PrivateKeyOption:
+					if current.TLS.Reality != nil {
+						current.TLS.Reality.PrivateKey = string(value)
+					}
+				case ShortIDOption:
+					if current.TLS.Reality != nil {
+						current.TLS.Reality.ShortID = []string{string(value)}
+					}
+				}
+			}
+
+			return c.Apply()
+		}
+	}
+
+	return fmt.Errorf("inbound %q not found", tag)
+}
+
+func (c *Config) addInbound(connection inboundConfig) (inbound.Connection, error) {
+	if connection.Tag == "" {
+		return nil, errors.New("inbound tag required")
+	}
+
+	for i := range c.Inbounds {
+		if c.Inbounds[i].Tag == connection.Tag {
+			return nil, fmt.Errorf("inbound %q already exists", connection.Tag)
+		}
+
+		if c.Inbounds[i].Port == connection.Port {
+			return nil, fmt.Errorf("port %d already in use", connection.Port)
+		}
+	}
+
+	model, err := connection.model()
+	if err != nil {
+		return nil, err
+	}
+
+	c.Inbounds = append(c.Inbounds, connection)
+
+	err = c.Apply()
+	if err != nil {
+		return nil, err
+	}
+
+	return model, nil
+}
+
+func newHysteria2(tag string, port int32) (inboundConfig, error) {
 	certificate, err := cert.Read(certPath)
 	if err != nil {
 		return inboundConfig{}, err
@@ -77,7 +219,7 @@ func newHysteria2(port int32) (inboundConfig, error) {
 
 	return inboundConfig{
 		Type:   InboundTypeHysteria2,
-		Tag:    uuid.NewString(),
+		Tag:    tag,
 		Listen: "::",
 		Port:   port,
 		Users:  []userConfig{},
@@ -90,28 +232,14 @@ func newHysteria2(port int32) (inboundConfig, error) {
 	}, nil
 }
 
-func newVless(port int32, serverName string, options inbound.VlessTransportOptions) (inboundConfig, error) {
-	key := make([]byte, 32)
-
-	_, err := rand.Read(key)
-	if err != nil {
-		return inboundConfig{}, err
-	}
-
-	short := make([]byte, 8)
-
-	_, err = rand.Read(short)
-	if err != nil {
-		return inboundConfig{}, err
-	}
-
+func newVless(tag string, port int32, serverName string, options inbound.VlessTransportOptions, privateKey, shortID, serviceName string) (inboundConfig, error) {
 	var t transport
 
 	switch options.Type {
 	case inbound.VlessTransportTypeGrpc:
 		t = transport{
 			Type:        "grpc",
-			ServiceName: rand.Text(),
+			ServiceName: serviceName,
 		}
 	case inbound.VlessTransportTypeHttp:
 		t = transport{
@@ -125,7 +253,7 @@ func newVless(port int32, serverName string, options inbound.VlessTransportOptio
 
 	return inboundConfig{
 		Type:   InboundTypeVless,
-		Tag:    uuid.NewString(),
+		Tag:    tag,
 		Listen: "::",
 		Port:   port,
 		Users:  []userConfig{},
@@ -135,20 +263,12 @@ func newVless(port int32, serverName string, options inbound.VlessTransportOptio
 			Reality: &reality{
 				Enabled:    true,
 				Handshake:  handshake{Server: serverName, Port: 443},
-				PrivateKey: base64.RawURLEncoding.EncodeToString(key),
-				ShortID:    []string{hex.EncodeToString(short)},
+				PrivateKey: privateKey,
+				ShortID:    []string{shortID},
 			},
 		},
 		Transport: &t,
 	}, nil
-}
-
-func newHysteria2User(name string) userConfig {
-	return userConfig{Name: name, Password: rand.Text()}
-}
-
-func newVlessUser(tag string) userConfig {
-	return userConfig{Name: tag, UUID: tag}
 }
 
 // model adds client-facing details derived from the stored certificate or REALITY key.

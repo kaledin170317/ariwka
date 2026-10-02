@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -88,12 +91,19 @@ func (s Service) AddHysteria2Inbound(ctx context.Context, nodeID string, port in
 		return model.Inbound{}, err
 	}
 
-	created, err := node.AddHysteria2Inbound(ctx, port)
+	config := model.InboundConfig{
+		Tag:    uuid.NewString(),
+		NodeID: nodeID,
+		Type:   model.InboundTypeHysteria2,
+		Port:   port,
+	}
+
+	err = s.Repo.CreateInbound(ctx, config)
 	if err != nil {
 		return model.Inbound{}, err
 	}
 
-	return s.saveInbound(ctx, node, created, nodeID, port, model.InboundTypeHysteria2)
+	return node.AddHysteria2Inbound(ctx, config.Tag, port)
 }
 
 func (s Service) AddVlessInbound(ctx context.Context, nodeID string, port int32, serverName string, transport model.VlessTransportOptions) (model.Inbound, error) {
@@ -102,12 +112,62 @@ func (s Service) AddVlessInbound(ctx context.Context, nodeID string, port int32,
 		return model.Inbound{}, err
 	}
 
-	created, err := node.AddVlessInbound(ctx, port, serverName, transport)
+	if serverName == "" || !transport.Type.IsValid() {
+		return model.Inbound{}, errors.New("server name and valid transport required")
+	}
+
+	key := make([]byte, 32)
+
+	_, err = rand.Read(key)
 	if err != nil {
 		return model.Inbound{}, err
 	}
 
-	return s.saveInbound(ctx, node, created, nodeID, port, model.InboundTypeVless)
+	short := make([]byte, 8)
+
+	_, err = rand.Read(short)
+	if err != nil {
+		return model.Inbound{}, err
+	}
+
+	config := model.InboundConfig{
+		Tag:        uuid.NewString(),
+		NodeID:     nodeID,
+		Type:       model.InboundTypeVless,
+		Port:       port,
+		ServerName: serverName,
+		Transport:  transport,
+		PrivateKey: base64.RawURLEncoding.EncodeToString(key),
+		ShortID:    hex.EncodeToString(short),
+	}
+	if transport.Type == model.VlessTransportTypeGrpc {
+		config.ServiceName = rand.Text()
+	}
+
+	err = s.Repo.CreateInbound(ctx, config)
+	if err != nil {
+		return model.Inbound{}, err
+	}
+
+	return node.AddVlessInbound(ctx, config)
+}
+
+func (s Service) SyncInbounds(ctx context.Context) error {
+	nodes, err := s.Repo.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	var failures []error
+
+	for _, n := range nodes {
+		err = s.syncNode(ctx, n.ID)
+		if err != nil {
+			failures = append(failures, fmt.Errorf("node %s: %w", n.Name, err))
+		}
+	}
+
+	return errors.Join(failures...)
 }
 
 func (s Service) inboundNode(nodeID string, port int32) (*provider.Node, error) {
@@ -118,28 +178,51 @@ func (s Service) inboundNode(nodeID string, port int32) (*provider.Node, error) 
 	return s.Get(nodeID)
 }
 
-func (s Service) saveInbound(ctx context.Context, node *provider.Node, created model.Inbound, nodeID string, port int32, kind model.InboundType) (model.Inbound, error) {
-	if created.Tag == "" {
-		return model.Inbound{}, errors.New("node returned empty inbound tag")
+func (s Service) syncNode(ctx context.Context, nodeID string) error {
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return err
 	}
 
-	err := s.Repo.CreateInbound(ctx, model.InboundConfig{
-		Tag:    created.Tag,
-		NodeID: nodeID,
-		Type:   kind,
-		Port:   port,
-	})
+	desired, err := s.Repo.ListInbounds(ctx, nodeID)
 	if err != nil {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
+		return err
+	}
 
-		cleanupErr := node.RemoveInbound(cleanupCtx, created.Tag)
-		if cleanupErr != nil {
-			return model.Inbound{}, errors.Join(err, cleanupErr)
+	current, err := node.Inbounds(ctx)
+	if err != nil {
+		return err
+	}
+
+	tags := make(map[string]model.Inbound, len(current))
+	for _, inbound := range current {
+		tags[inbound.Tag] = inbound
+	}
+
+	var failures []error
+
+	for _, config := range desired {
+		if existing, ok := tags[config.Tag]; ok {
+			err = node.ModifyInbound(ctx, config, existing)
+		} else {
+			switch config.Type {
+			case model.InboundTypeHysteria2:
+				_, err = node.AddHysteria2Inbound(ctx, config.Tag, config.Port)
+			case model.InboundTypeVless:
+				if config.PrivateKey != "" {
+					_, err = node.AddVlessInbound(ctx, config)
+				} else {
+					err = errors.New("no private key stored")
+				}
+			default:
+				err = fmt.Errorf("unsupported inbound type %d", config.Type)
+			}
 		}
 
-		return model.Inbound{}, err
+		if err != nil {
+			failures = append(failures, fmt.Errorf("inbound %s: %w", config.Tag, err))
+		}
 	}
 
-	return created, nil
+	return errors.Join(failures...)
 }
