@@ -51,3 +51,29 @@ func (r SQLite) ListInbounds(ctx context.Context, nodeID string) ([]model.Inboun
 
 	return configs, rows.Err()
 }
+
+func (r SQLite) DeleteInbound(ctx context.Context, nodeID, tag string) error {
+	tx, err := r.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = sq.Delete("profiles").
+		Where(sq.Eq{"node_id": nodeID, "inbound": tag}).
+		RunWith(tx).
+		ExecContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	_, err = sq.Delete("node_inbounds").
+		Where(sq.Eq{"node_id": nodeID, "tag": tag}).
+		RunWith(tx).
+		ExecContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}

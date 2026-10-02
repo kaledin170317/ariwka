@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -43,7 +44,8 @@ func main() {
 	jwt := auth.JWT{Secret: []byte(env.GetJWTSecret())}
 	usersDB := userrepo.SQLite{DB: db}
 	users := userservice.Service{Repo: usersDB}
-	nodes := nodeservice.Service{Repo: noderepo.SQLite{DB: db}}
+	stateMu := &sync.Mutex{}
+	nodes := nodeservice.Service{Repo: noderepo.SQLite{DB: db}, Mu: stateMu}
 
 	nodeProvider, err := provider.New(context.Background(), nodes.Repo)
 	if err != nil {
@@ -56,6 +58,7 @@ func main() {
 		Repo:  configrepo.SQLite{DB: db},
 		Nodes: nodes,
 		Users: users,
+		Mu:    stateMu,
 	}
 
 	go func() {

@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -21,14 +23,19 @@ type Repository interface {
 	List(context.Context) ([]model.Node, error)
 	CreateInbound(context.Context, model.InboundConfig) error
 	ListInbounds(context.Context, string) ([]model.InboundConfig, error)
+	DeleteInbound(context.Context, string, string) error
 }
 
 type Service struct {
 	Repo     Repository
 	Provider *provider.Provider
+	Mu       *sync.Mutex
 }
 
 func (s Service) Create(ctx context.Context, name, address string) (model.Node, error) {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
 	if name == "" || address == "" {
 		return model.Node{}, errors.New("name and address required")
 	}
@@ -59,6 +66,9 @@ func (s Service) Create(ctx context.Context, name, address string) (model.Node, 
 }
 
 func (s Service) Delete(ctx context.Context, id string) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
 	err := s.Repo.Delete(ctx, id)
 	if err != nil {
 		return err
@@ -86,6 +96,9 @@ func (s Service) Inbounds(ctx context.Context, nodeID string) ([]model.Inbound, 
 }
 
 func (s Service) AddHysteria2Inbound(ctx context.Context, nodeID string, port int32) (model.Inbound, error) {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
 	node, err := s.inboundNode(nodeID, port)
 	if err != nil {
 		return model.Inbound{}, err
@@ -107,6 +120,9 @@ func (s Service) AddHysteria2Inbound(ctx context.Context, nodeID string, port in
 }
 
 func (s Service) AddVlessInbound(ctx context.Context, nodeID string, port int32, serverName string, transport model.VlessTransportOptions) (model.Inbound, error) {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
 	node, err := s.inboundNode(nodeID, port)
 	if err != nil {
 		return model.Inbound{}, err
@@ -152,7 +168,56 @@ func (s Service) AddVlessInbound(ctx context.Context, nodeID string, port int32,
 	return node.AddVlessInbound(ctx, config)
 }
 
+func (s Service) DeleteInbound(ctx context.Context, nodeID, tag string) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	configs, err := s.Repo.ListInbounds(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+
+	found := false
+
+	for _, config := range configs {
+		if config.Tag == tag {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return sql.ErrNoRows
+	}
+
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return err
+	}
+
+	inbounds, err := node.Inbounds(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, inbound := range inbounds {
+		if inbound.Tag == tag {
+			err = node.RemoveInbound(ctx, tag)
+			if err != nil {
+				return err
+			}
+
+			break
+		}
+	}
+
+	return s.Repo.DeleteInbound(ctx, nodeID, tag)
+}
+
 func (s Service) SyncInbounds(ctx context.Context) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
 	nodes, err := s.Repo.List(ctx)
 	if err != nil {
 		return err

@@ -33,6 +33,18 @@ func (h Configs) CreateUserProfile(ctx context.Context, req *api.CreateUserProfi
 	}, err
 }
 
+func (h Configs) DeleteMyProfile(ctx context.Context, req *api.DeleteMyProfileRequest) (*api.DeleteMyProfileResponse, error) {
+	u, _ := usercontext.User(ctx)
+	err := h.Service.Delete(ctx, u.ID, req.GetId())
+
+	return &api.DeleteMyProfileResponse{}, err
+}
+
+func (h Configs) DeleteUserProfile(ctx context.Context, req *api.DeleteUserProfileRequest) (*api.DeleteUserProfileResponse, error) {
+	err := h.Service.Delete(ctx, req.GetUserId(), req.GetId())
+	return &api.DeleteUserProfileResponse{}, err
+}
+
 func (h Configs) GetConfig(ctx context.Context, _ *api.GetConfigRequest) (*api.GetConfigResponse, error) {
 	u, _ := usercontext.User(ctx)
 

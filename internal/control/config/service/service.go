@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -21,6 +22,7 @@ type Repository interface {
 	List(context.Context, string) ([]model.Profile, error)
 	ListByInbound(context.Context, string) ([]model.Profile, error)
 	SavePassword(context.Context, string, string) error
+	Delete(context.Context, string, string) error
 }
 
 type Nodes interface {
@@ -36,9 +38,13 @@ type Service struct {
 	Repo  Repository
 	Nodes Nodes
 	Users Users
+	Mu    *sync.Mutex
 }
 
 func (s Service) Create(ctx context.Context, userID, nodeID, inbound string) (string, string, error) {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
 	_, err := s.Users.Get(ctx, userID)
 	if err != nil {
 		return "", "", err
@@ -112,7 +118,67 @@ func (s Service) Create(ctx context.Context, userID, nodeID, inbound string) (st
 	return id, connection, nil
 }
 
+func (s Service) Delete(ctx context.Context, userID, id string) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	profile, err := s.Repo.Get(ctx, userID, id)
+	if err != nil {
+		return err
+	}
+
+	node, err := s.Nodes.Get(profile.NodeID)
+	if err != nil {
+		return err
+	}
+
+	inbounds, err := node.Inbounds(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, inbound := range inbounds {
+		if inbound.Tag == profile.Inbound {
+			exists := false
+
+			if h := inbound.Hysteria2; h != nil {
+				for _, user := range h.Users {
+					if user.Name == id {
+						exists = true
+						break
+					}
+				}
+			} else if v := inbound.Vless; v != nil {
+				for _, user := range v.UserDetails {
+					if user.Tag == id {
+						exists = true
+						break
+					}
+				}
+
+				if len(v.UserDetails) == 0 {
+					exists = slices.Contains(v.Users, id)
+				}
+			}
+
+			if exists {
+				err = node.RemoveUser(ctx, id, profile.Inbound)
+				if err != nil {
+					return err
+				}
+			}
+
+			break
+		}
+	}
+
+	return s.Repo.Delete(ctx, userID, id)
+}
+
 func (s Service) SyncUsers(ctx context.Context) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
 	nodes, err := s.Nodes.List(ctx)
 	if err != nil {
 		return err

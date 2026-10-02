@@ -90,6 +90,11 @@ func (h Nodes) AddNodeVlessInbound(ctx context.Context, req *api.AddNodeVlessInb
 	return &api.AddNodeVlessInboundResponse{Inbound: inboundProto(created)}, nil
 }
 
+func (h Nodes) DeleteNodeInbound(ctx context.Context, req *api.DeleteNodeInboundRequest) (*api.DeleteNodeInboundResponse, error) {
+	err := h.Service.DeleteInbound(ctx, req.GetNodeId(), req.GetTag())
+	return &api.DeleteNodeInboundResponse{}, err
+}
+
 func inboundProto(inbound model.Inbound) *common.Inbound {
 	if h := inbound.Hysteria2; h != nil {
 		return &common.Inbound{

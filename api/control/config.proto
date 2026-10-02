@@ -7,6 +7,8 @@ option go_package = "vpn/gen/control;control";
 service ConfigService {
   rpc CreateMyProfile(CreateMyProfileRequest) returns (CreateProfileResponse);
   rpc CreateUserProfile(CreateUserProfileRequest) returns (CreateProfileResponse);
+  rpc DeleteMyProfile(DeleteMyProfileRequest) returns (DeleteMyProfileResponse);
+  rpc DeleteUserProfile(DeleteUserProfileRequest) returns (DeleteUserProfileResponse);
   rpc GetConfig(GetConfigRequest) returns (GetConfigResponse);
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
   rpc GetSubscriptionLink(GetSubscriptionLinkRequest) returns (GetSubscriptionLinkResponse);
@@ -27,6 +29,14 @@ message CreateProfileResponse {
   string id = 1;
   string connection = 2;
 }
+
+message DeleteMyProfileRequest { string id = 1; }
+message DeleteMyProfileResponse {}
+message DeleteUserProfileRequest {
+  string user_id = 1;
+  string id = 2;
+}
+message DeleteUserProfileResponse {}
 message GetConfigRequest {}
 
 message GetConfigResponse { repeated string connections = 1; }

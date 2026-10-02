@@ -103,3 +103,13 @@ func (r SQLite) SavePassword(ctx context.Context, id, password string) error {
 
 	return err
 }
+
+func (r SQLite) Delete(ctx context.Context, userID, id string) error {
+	_, err := sq.
+		Delete("profiles").
+		Where(sq.Eq{"id": id, "user_id": userID}).
+		RunWith(r.DB).
+		ExecContext(ctx)
+
+	return err
+}

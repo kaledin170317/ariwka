@@ -13,6 +13,7 @@ service NodeService {
   rpc GetNodeInbounds(GetNodeInboundsRequest) returns (GetNodeInboundsResponse);
   rpc AddNodeHysteria2Inbound(AddNodeHysteria2InboundRequest) returns (AddNodeHysteria2InboundResponse);
   rpc AddNodeVlessInbound(AddNodeVlessInboundRequest) returns (AddNodeVlessInboundResponse);
+  rpc DeleteNodeInbound(DeleteNodeInboundRequest) returns (DeleteNodeInboundResponse);
 }
 
 message Node {
@@ -47,3 +48,9 @@ message AddNodeVlessInboundRequest {
 }
 message AddNodeHysteria2InboundResponse { vpn.common.Inbound inbound = 1; }
 message AddNodeVlessInboundResponse { vpn.common.Inbound inbound = 1; }
+
+message DeleteNodeInboundRequest {
+  string node_id = 1;
+  string tag = 2;
+}
+message DeleteNodeInboundResponse {}
