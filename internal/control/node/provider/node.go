@@ -32,7 +32,7 @@ func (n *Node) AddVlessUser(ctx context.Context, inboundTag string, user model.V
 }
 
 func (n *Node) RemoveUser(ctx context.Context, userTag, inboundTag string) error {
-	_, err := n.client.RemoveUser(ctx, &api.RemoveUserRequest{
+	_, err := n.users.RemoveUser(ctx, &api.RemoveUserRequest{
 		Tag:        userTag,
 		InboundTag: inboundTag,
 	})
@@ -41,7 +41,7 @@ func (n *Node) RemoveUser(ctx context.Context, userTag, inboundTag string) error
 }
 
 func (n *Node) AddHysteria2Inbound(ctx context.Context, tag string, port int32) (model.Inbound, error) {
-	resp, err := n.client.AddInbound(ctx, &api.AddInboundRequest{
+	resp, err := n.inbounds.AddInbound(ctx, &api.AddInboundRequest{
 		Tag:  tag,
 		Port: port,
 		Details: &api.AddInboundRequest_Hysteria2{
@@ -56,7 +56,7 @@ func (n *Node) AddHysteria2Inbound(ctx context.Context, tag string, port int32) 
 }
 
 func (n *Node) AddVlessInbound(ctx context.Context, config model.InboundConfig) (model.Inbound, error) {
-	resp, err := n.client.AddInbound(ctx, &api.AddInboundRequest{
+	resp, err := n.inbounds.AddInbound(ctx, &api.AddInboundRequest{
 		Tag:  config.Tag,
 		Port: config.Port,
 		Details: &api.AddInboundRequest_Vless{
@@ -77,7 +77,7 @@ func (n *Node) AddVlessInbound(ctx context.Context, config model.InboundConfig) 
 }
 
 func (n *Node) RemoveInbound(ctx context.Context, tag string) error {
-	_, err := n.client.RemoveInbound(ctx, &api.RemoveInboundRequest{Tag: tag})
+	_, err := n.inbounds.RemoveInbound(ctx, &api.RemoveInboundRequest{Tag: tag})
 	return err
 }
 
@@ -143,13 +143,13 @@ func (n *Node) ModifyInbound(ctx context.Context, config model.InboundConfig, cu
 		return nil
 	}
 
-	_, err := n.client.ModifyInbound(ctx, &api.ModifyInboundRequest{Tag: config.Tag, Options: options})
+	_, err := n.inbounds.ModifyInbound(ctx, &api.ModifyInboundRequest{Tag: config.Tag, Options: options})
 
 	return err
 }
 
 func (n *Node) ModifyUser(ctx context.Context, inboundTag, tag string, option *api.UserOption) error {
-	_, err := n.client.ModifyUser(ctx, &api.ModifyUserRequest{
+	_, err := n.users.ModifyUser(ctx, &api.ModifyUserRequest{
 		InboundTag: inboundTag,
 		Tag:        tag,
 		Options:    []*api.UserOption{option},
@@ -166,13 +166,13 @@ func (n *Node) ModifyVlessUser(ctx context.Context, inboundTag, tag, uuid string
 	return n.ModifyUser(ctx, inboundTag, tag, &api.UserOption{Value: &api.UserOption_Uuid{Uuid: uuid}})
 }
 
-func (n *Node) AddRuleSet(ctx context.Context, name string) error {
-	_, err := n.client.AddRuleSet(ctx, &api.AddRuleSetRequest{Name: name})
+func (n *Node) AddRuleSet(ctx context.Context, name, url string) error {
+	_, err := n.routes.AddRuleSet(ctx, &api.AddRuleSetRequest{Name: name, Url: url})
 	return err
 }
 
-func (n *Node) RuleSets(ctx context.Context) ([]string, error) {
-	resp, err := n.client.GetRuleSets(ctx, &api.GetRuleSetsRequest{})
+func (n *Node) RuleSets(ctx context.Context) ([]*api.RuleSet, error) {
+	resp, err := n.routes.GetRuleSets(ctx, &api.GetRuleSetsRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -180,22 +180,71 @@ func (n *Node) RuleSets(ctx context.Context) ([]string, error) {
 	return resp.GetRuleSets(), nil
 }
 
+func (n *Node) RemoveRuleSet(ctx context.Context, name string) error {
+	_, err := n.routes.RemoveRuleSet(ctx, &api.RemoveRuleSetRequest{Name: name})
+	return err
+}
+
+func (n *Node) ModifyRuleSet(ctx context.Context, name, url string) error {
+	_, err := n.routes.ModifyRuleSet(ctx, &api.ModifyRuleSetRequest{Name: name, Url: url})
+	return err
+}
+
+func (n *Node) RouteRules(ctx context.Context) ([]*api.RouteRule, error) {
+	resp, err := n.routes.GetRouteRules(ctx, &api.GetRouteRulesRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.GetRules(), nil
+}
+
+func (n *Node) RemoveRouteRule(ctx context.Context, index uint32) error {
+	_, err := n.routes.RemoveRouteRule(ctx, &api.RemoveRouteRuleRequest{Index: index})
+	return err
+}
+
+func (n *Node) Outbounds(ctx context.Context) ([]*api.Outbound, error) {
+	resp, err := n.outbounds.GetOutbounds(ctx, &api.GetOutboundsRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.GetOutbounds(), nil
+}
+
+func (n *Node) AddOutbound(ctx context.Context, outbound *api.Outbound) error {
+	_, err := n.outbounds.AddOutbound(ctx, &api.AddOutboundRequest{Outbound: outbound})
+	return err
+}
+
+func (n *Node) RemoveOutbound(ctx context.Context, tag string) error {
+	_, err := n.outbounds.RemoveOutbound(ctx, &api.RemoveOutboundRequest{Tag: tag})
+	return err
+}
+
+func (n *Node) ModifyOutbound(ctx context.Context, tag string, options []*api.OutboundOption) error {
+	_, err := n.outbounds.ModifyOutbound(ctx, &api.ModifyOutboundRequest{Tag: tag, Options: options})
+	return err
+}
+
 func (n *Node) AddRouteRule(ctx context.Context, rule model.RouteRule) error {
 	if !rule.Action.IsValid() {
 		return errors.New("unsupported route action")
 	}
 
-	_, err := n.client.AddRouteRule(ctx, &api.AddRouteRuleRequest{
-		User:    rule.User,
-		RuleSet: rule.RuleSet,
-		Action:  api.RouteAction(rule.Action),
+	_, err := n.routes.AddRouteRule(ctx, &api.AddRouteRuleRequest{
+		User:     rule.User,
+		RuleSet:  rule.RuleSet,
+		Action:   api.RouteAction(rule.Action),
+		Outbound: rule.Outbound,
 	})
 
 	return err
 }
 
 func (n *Node) Inbounds(ctx context.Context) ([]model.Inbound, error) {
-	resp, err := n.client.GetInbounds(ctx, &api.GetInboundsRequest{})
+	resp, err := n.inbounds.GetInbounds(ctx, &api.GetInboundsRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +280,7 @@ func (n *Node) Inbounds(ctx context.Context) ([]model.Inbound, error) {
 }
 
 func (n *Node) addUser(ctx context.Context, req *api.AddUserRequest) (model.Inbound, error) {
-	resp, err := n.client.AddUser(ctx, req)
+	resp, err := n.users.AddUser(ctx, req)
 	if err != nil {
 		return model.Inbound{}, err
 	}

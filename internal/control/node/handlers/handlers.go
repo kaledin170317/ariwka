@@ -95,6 +95,79 @@ func (h Nodes) DeleteNodeInbound(ctx context.Context, req *api.DeleteNodeInbound
 	return &api.DeleteNodeInboundResponse{}, err
 }
 
+func (h Nodes) GetNodeRuleSets(ctx context.Context, req *api.GetNodeRuleSetsRequest) (*api.GetNodeRuleSetsResponse, error) {
+	rules, err := h.Service.RuleSets(ctx, req.GetNodeId())
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.GetNodeRuleSetsResponse{RuleSets: rules}, nil
+}
+
+func (h Nodes) AddNodeRuleSet(ctx context.Context, req *api.AddNodeRuleSetRequest) (*api.AddNodeRuleSetResponse, error) {
+	err := h.Service.AddRuleSet(ctx, req.GetNodeId(), req.GetName(), req.GetUrl())
+	return &api.AddNodeRuleSetResponse{}, err
+}
+
+func (h Nodes) RemoveNodeRuleSet(ctx context.Context, req *api.RemoveNodeRuleSetRequest) (*api.RemoveNodeRuleSetResponse, error) {
+	err := h.Service.RemoveRuleSet(ctx, req.GetNodeId(), req.GetName())
+	return &api.RemoveNodeRuleSetResponse{}, err
+}
+
+func (h Nodes) ModifyNodeRuleSet(ctx context.Context, req *api.ModifyNodeRuleSetRequest) (*api.ModifyNodeRuleSetResponse, error) {
+	err := h.Service.ModifyRuleSet(ctx, req.GetNodeId(), req.GetName(), req.GetUrl())
+	return &api.ModifyNodeRuleSetResponse{}, err
+}
+
+func (h Nodes) AddNodeRouteRule(ctx context.Context, req *api.AddNodeRouteRuleRequest) (*api.AddNodeRouteRuleResponse, error) {
+	err := h.Service.AddRouteRule(ctx, req.GetNodeId(), model.RouteRule{
+		User:     req.User,
+		RuleSet:  req.RuleSet,
+		Action:   model.RouteAction(req.GetAction()),
+		Outbound: req.GetOutbound(),
+	})
+
+	return &api.AddNodeRouteRuleResponse{}, err
+}
+
+func (h Nodes) GetNodeRouteRules(ctx context.Context, req *api.GetNodeRouteRulesRequest) (*api.GetNodeRouteRulesResponse, error) {
+	rules, err := h.Service.RouteRules(ctx, req.GetNodeId())
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.GetNodeRouteRulesResponse{Rules: rules}, nil
+}
+
+func (h Nodes) RemoveNodeRouteRule(ctx context.Context, req *api.RemoveNodeRouteRuleRequest) (*api.RemoveNodeRouteRuleResponse, error) {
+	err := h.Service.RemoveRouteRule(ctx, req.GetNodeId(), req.GetIndex())
+	return &api.RemoveNodeRouteRuleResponse{}, err
+}
+
+func (h Nodes) GetNodeOutbounds(ctx context.Context, req *api.GetNodeOutboundsRequest) (*api.GetNodeOutboundsResponse, error) {
+	outbounds, err := h.Service.Outbounds(ctx, req.GetNodeId())
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.GetNodeOutboundsResponse{Outbounds: outbounds}, nil
+}
+
+func (h Nodes) AddNodeOutbound(ctx context.Context, req *api.AddNodeOutboundRequest) (*api.AddNodeOutboundResponse, error) {
+	err := h.Service.AddOutbound(ctx, req.GetNodeId(), req.GetOutbound())
+	return &api.AddNodeOutboundResponse{}, err
+}
+
+func (h Nodes) RemoveNodeOutbound(ctx context.Context, req *api.RemoveNodeOutboundRequest) (*api.RemoveNodeOutboundResponse, error) {
+	err := h.Service.RemoveOutbound(ctx, req.GetNodeId(), req.GetTag())
+	return &api.RemoveNodeOutboundResponse{}, err
+}
+
+func (h Nodes) ModifyNodeOutbound(ctx context.Context, req *api.ModifyNodeOutboundRequest) (*api.ModifyNodeOutboundResponse, error) {
+	err := h.Service.ModifyOutbound(ctx, req.GetNodeId(), req.GetTag(), req.GetOptions())
+	return &api.ModifyNodeOutboundResponse{}, err
+}
+
 func inboundProto(inbound model.Inbound) *common.Inbound {
 	if h := inbound.Hysteria2; h != nil {
 		return &common.Inbound{

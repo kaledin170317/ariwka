@@ -20,8 +20,11 @@ type Repository interface {
 
 type Node struct {
 	model.Node
-	client api.VPNServiceClient
-	conn   *grpc.ClientConn
+	inbounds  api.InboundServiceClient
+	users     api.UserServiceClient
+	routes    api.RouteServiceClient
+	outbounds api.OutboundServiceClient
+	conn      *grpc.ClientConn
 }
 
 type Provider struct {
@@ -65,9 +68,12 @@ func (p *Provider) Add(node model.Node) error {
 	}
 
 	p.nodes[node.ID] = &Node{
-		Node:   node,
-		client: api.NewVPNServiceClient(conn),
-		conn:   conn,
+		Node:      node,
+		inbounds:  api.NewInboundServiceClient(conn),
+		users:     api.NewUserServiceClient(conn),
+		routes:    api.NewRouteServiceClient(conn),
+		outbounds: api.NewOutboundServiceClient(conn),
+		conn:      conn,
 	}
 
 	return nil

@@ -27,25 +27,85 @@ func (s *SingBoxService) Sync() error {
 	return s.cfg.Sync()
 }
 
-func (s *SingBoxService) AddRemoteRule(name string) error {
+func (s *SingBoxService) AddRuleSet(name, url string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.cfg.AddRuleSet(name, fmt.Sprintf("https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-%s.srs", name))
+	if url == "" {
+		url = fmt.Sprintf("https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-%s.srs", name)
+	}
+
+	return s.cfg.AddRuleSet(name, url)
 }
 
-func (s *SingBoxService) GetRuleSets() []string {
+func (s *SingBoxService) GetRuleSets() []config.RuleSet {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	return s.cfg.GetRuleSets()
 }
 
-func (s *SingBoxService) AddRoute(user *string, rule *string, action config.RouteAction) error {
+func (s *SingBoxService) RemoveRuleSet(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.cfg.AddRoute(user, rule, action)
+	return s.cfg.RemoveRuleSet(name)
+}
+
+func (s *SingBoxService) ModifyRuleSet(name, url string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.cfg.ModifyRuleSet(name, url)
+}
+
+func (s *SingBoxService) GetRouteRules() []config.RouteRule {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.cfg.GetRouteRules()
+}
+
+func (s *SingBoxService) RemoveRouteRule(index uint32) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.cfg.RemoveRouteRule(index)
+}
+
+func (s *SingBoxService) AddRoute(user *string, rule *string, action config.RouteAction, outbound string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.cfg.AddRoute(user, rule, action, outbound)
+}
+
+func (s *SingBoxService) GetOutbounds() []config.Outbound {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.cfg.GetOutbounds()
+}
+
+func (s *SingBoxService) AddOutbound(value config.Outbound) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.cfg.AddOutbound(value)
+}
+
+func (s *SingBoxService) RemoveOutbound(tag string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.cfg.RemoveOutbound(tag)
+}
+
+func (s *SingBoxService) ModifyOutbound(tag string, options []config.OutboundOption) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.cfg.ModifyOutbound(tag, options)
 }
 
 func (s *SingBoxService) GetInbounds() ([]inbound.Connection, error) {

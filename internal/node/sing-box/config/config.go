@@ -36,11 +36,31 @@ type server struct {
 
 // Outbound section
 
-// ENUM(direct, block)
+// ENUM(direct, block, vless, hysteria2)
 type OutboundType string
 
 type outbound struct {
-	Type OutboundType `json:"type,omitzero"`
+	Type       OutboundType `json:"type,omitzero"`
+	Tag        string       `json:"tag,omitempty"`
+	Server     string       `json:"server,omitempty"`
+	ServerPort uint32       `json:"server_port,omitempty"`
+	UUID       string       `json:"uuid,omitempty"`
+	Password   string       `json:"password,omitempty"`
+	TLS        *outboundTLS `json:"tls,omitempty"`
+	Transport  *transport   `json:"transport,omitempty"`
+}
+
+type outboundTLS struct {
+	Enabled    bool             `json:"enabled"`
+	ServerName string           `json:"server_name,omitempty"`
+	Insecure   bool             `json:"insecure,omitempty"`
+	Reality    *outboundReality `json:"reality,omitempty"`
+}
+
+type outboundReality struct {
+	Enabled   bool   `json:"enabled"`
+	PublicKey string `json:"public_key"`
+	ShortID   string `json:"short_id"`
 }
 
 // Route section
@@ -67,6 +87,7 @@ type routeRule struct {
 	AuthUser []string    `json:"auth_user,omitempty"`
 	RuleSet  []string    `json:"rule_set,omitempty"`
 	Action   RouteAction `json:"action"`
+	Outbound string      `json:"outbound,omitempty"`
 }
 
 // ENUM(reject=1, route, hijack-dns, sniff)

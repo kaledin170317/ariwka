@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package vpn.v1;
+
+option go_package = "vpn/gen/node;node";
+
+import "vpn/common/common.proto";
+
+service UserService {
+  rpc AddUser(AddUserRequest) returns (AddUserResponse);
+  rpc RemoveUser(RemoveUserRequest) returns (RemoveUserResponse);
+  rpc ModifyUser(ModifyUserRequest) returns (ModifyUserResponse);
+}
+
+message Hysteria2User {
+  string name = 1;
+  string password = 2;
+}
+message VlessUser {
+  string tag = 1;
+  string uuid = 2;
+}
+
+message AddUserRequest {
+  string inbound_tag = 1;
+  oneof credentials {
+    VlessUser vless = 2;
+    Hysteria2User hysteria2 = 3;
+  }
+}
+message AddUserResponse {
+  vpn.common.Inbound inbound = 1;
+  oneof credentials {
+    Hysteria2User hysteria2 = 2;
+    VlessUser vless = 3;
+  }
+}
+
+message RemoveUserRequest {
+  string tag = 1;
+  string inbound_tag = 2;
+}
+message RemoveUserResponse {}
+
+message ModifyUserRequest {
+  string inbound_tag = 1;
+  string tag = 2;
+  repeated UserOption options = 3;
+}
+message UserOption {
+  oneof value {
+    string password = 1;
+    string uuid = 2;
+  }
+}
+message ModifyUserResponse {}

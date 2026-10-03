@@ -6,9 +6,15 @@ import (
 
 	api "vpn/gen/node"
 	"vpn/internal/node/sing-box/config"
+	"vpn/internal/node/sing-box/service"
 )
 
-func (c *VPNHandler) AddUser(ctx context.Context, in *api.AddUserRequest) (*api.AddUserResponse, error) {
+type UserHandler struct {
+	api.UnimplementedUserServiceServer
+	Service *service.SingBoxService
+}
+
+func (c *UserHandler) AddUser(ctx context.Context, in *api.AddUserRequest) (*api.AddUserResponse, error) {
 	var user config.User
 
 	switch value := in.GetCredentials().(type) {
@@ -26,7 +32,7 @@ func (c *VPNHandler) AddUser(ctx context.Context, in *api.AddUserRequest) (*api.
 		return nil, errors.New("user credentials required")
 	}
 
-	connection, err := c.service.AddUser(in.GetInboundTag(), user)
+	connection, err := c.Service.AddUser(in.GetInboundTag(), user)
 	if err != nil {
 		return nil, err
 	}
@@ -47,12 +53,12 @@ func (c *VPNHandler) AddUser(ctx context.Context, in *api.AddUserRequest) (*api.
 	return resp, nil
 }
 
-func (c *VPNHandler) RemoveUser(ctx context.Context, in *api.RemoveUserRequest) (*api.RemoveUserResponse, error) {
-	err := c.service.RemoveUser(in.GetTag(), in.GetInboundTag())
+func (c *UserHandler) RemoveUser(ctx context.Context, in *api.RemoveUserRequest) (*api.RemoveUserResponse, error) {
+	err := c.Service.RemoveUser(in.GetTag(), in.GetInboundTag())
 	return &api.RemoveUserResponse{}, err
 }
 
-func (c *VPNHandler) ModifyUser(ctx context.Context, in *api.ModifyUserRequest) (*api.ModifyUserResponse, error) {
+func (c *UserHandler) ModifyUser(ctx context.Context, in *api.ModifyUserRequest) (*api.ModifyUserResponse, error) {
 	options := make([]config.UserOption, 0, len(in.GetOptions()))
 	for _, option := range in.GetOptions() {
 		switch value := option.GetValue().(type) {
@@ -65,7 +71,7 @@ func (c *VPNHandler) ModifyUser(ctx context.Context, in *api.ModifyUserRequest) 
 		}
 	}
 
-	err := c.service.ModifyUser(in.GetInboundTag(), in.GetTag(), options)
+	err := c.Service.ModifyUser(in.GetInboundTag(), in.GetTag(), options)
 
 	return &api.ModifyUserResponse{}, err
 }

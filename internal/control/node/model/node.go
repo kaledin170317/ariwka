@@ -83,7 +83,8 @@ type InboundUser struct {
 }
 
 type RouteRule struct {
-	User    *string
-	RuleSet *string
-	Action  RouteAction
+	User     *string
+	RuleSet  *string
+	Action   RouteAction
+	Outbound string
 }

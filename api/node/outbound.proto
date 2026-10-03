@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package vpn.v1;
+
+option go_package = "vpn/gen/node;node";
+
+import "vpn/common/common.proto";
+
+service OutboundService {
+  rpc GetOutbounds(GetOutboundsRequest) returns (GetOutboundsResponse);
+  rpc AddOutbound(AddOutboundRequest) returns (AddOutboundResponse);
+  rpc RemoveOutbound(RemoveOutboundRequest) returns (RemoveOutboundResponse);
+  rpc ModifyOutbound(ModifyOutboundRequest) returns (ModifyOutboundResponse);
+}
+
+message Outbound {
+  string tag = 1;
+  oneof details {
+    DirectOutbound direct = 2;
+    BlockOutbound block = 3;
+    VlessOutbound vless = 4;
+    Hysteria2Outbound hysteria2 = 5;
+  }
+}
+message DirectOutbound {}
+message BlockOutbound {}
+message VlessOutbound {
+  string server = 1;
+  uint32 port = 2;
+  string uuid = 3;
+  vpn.common.VlessInbound inbound = 4;
+}
+message Hysteria2Outbound {
+  string server = 1;
+  uint32 port = 2;
+  string password = 3;
+  vpn.common.Hysteria2Inbound inbound = 4;
+}
+message GetOutboundsRequest {}
+message GetOutboundsResponse { repeated Outbound outbounds = 1; }
+message AddOutboundRequest { Outbound outbound = 1; }
+message AddOutboundResponse {}
+message RemoveOutboundRequest { string tag = 1; }
+message RemoveOutboundResponse {}
+message ModifyOutboundRequest {
+  string tag = 1;
+  repeated OutboundOption options = 2;
+}
+message OutboundOption {
+  oneof value {
+    string server = 1;
+    uint32 port = 2;
+    string uuid = 3;
+    string password = 4;
+    vpn.common.VlessInbound vless = 5;
+    vpn.common.Hysteria2Inbound hysteria2 = 6;
+  }
+}
+message ModifyOutboundResponse {}

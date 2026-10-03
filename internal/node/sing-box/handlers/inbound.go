@@ -8,10 +8,16 @@ import (
 	common "vpn/gen/vpn/common"
 	"vpn/internal/node/sing-box/config"
 	"vpn/internal/node/sing-box/model/inbound"
+	"vpn/internal/node/sing-box/service"
 )
 
-func (c *VPNHandler) GetInbounds(ctx context.Context, in *api.GetInboundsRequest) (*api.GetInboundsResponse, error) {
-	inbounds, err := c.service.GetInbounds()
+type InboundHandler struct {
+	api.UnimplementedInboundServiceServer
+	Service *service.SingBoxService
+}
+
+func (c *InboundHandler) GetInbounds(ctx context.Context, in *api.GetInboundsRequest) (*api.GetInboundsResponse, error) {
+	inbounds, err := c.Service.GetInbounds()
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +58,7 @@ func (c *VPNHandler) GetInbounds(ctx context.Context, in *api.GetInboundsRequest
 	return resp, nil
 }
 
-func (c *VPNHandler) AddInbound(ctx context.Context, in *api.AddInboundRequest) (*api.AddInboundResponse, error) {
+func (c *InboundHandler) AddInbound(ctx context.Context, in *api.AddInboundRequest) (*api.AddInboundResponse, error) {
 	var (
 		connection inbound.Connection
 		err        error
@@ -60,11 +66,11 @@ func (c *VPNHandler) AddInbound(ctx context.Context, in *api.AddInboundRequest) 
 
 	switch details := in.GetDetails().(type) {
 	case *api.AddInboundRequest_Hysteria2:
-		connection, err = c.service.AddHysteria2Inbound(in.GetTag(), in.GetPort())
+		connection, err = c.Service.AddHysteria2Inbound(in.GetTag(), in.GetPort())
 	case *api.AddInboundRequest_Vless:
 		v := details.Vless
 		t := v.GetTransport()
-		connection, err = c.service.AddVlessInbound(
+		connection, err = c.Service.AddVlessInbound(
 			in.GetTag(),
 			in.GetPort(),
 			v.GetServerName(),
@@ -88,11 +94,11 @@ func (c *VPNHandler) AddInbound(ctx context.Context, in *api.AddInboundRequest) 
 	return &api.AddInboundResponse{Inbound: inboundProto(connection)}, nil
 }
 
-func (c *VPNHandler) RemoveInbound(ctx context.Context, in *api.RemoveInboundRequest) (*api.RemoveInboundResponse, error) {
-	return &api.RemoveInboundResponse{}, c.service.RemoveInbound(in.GetTag())
+func (c *InboundHandler) RemoveInbound(ctx context.Context, in *api.RemoveInboundRequest) (*api.RemoveInboundResponse, error) {
+	return &api.RemoveInboundResponse{}, c.Service.RemoveInbound(in.GetTag())
 }
 
-func (c *VPNHandler) ModifyInbound(ctx context.Context, in *api.ModifyInboundRequest) (*api.ModifyInboundResponse, error) {
+func (c *InboundHandler) ModifyInbound(ctx context.Context, in *api.ModifyInboundRequest) (*api.ModifyInboundResponse, error) {
 	options := make([]config.InboundOption, 0, len(in.GetOptions()))
 	for _, option := range in.GetOptions() {
 		switch value := option.GetValue().(type) {
@@ -117,7 +123,7 @@ func (c *VPNHandler) ModifyInbound(ctx context.Context, in *api.ModifyInboundReq
 		}
 	}
 
-	err := c.service.ModifyInbound(in.GetTag(), options)
+	err := c.Service.ModifyInbound(in.GetTag(), options)
 
 	return &api.ModifyInboundResponse{}, err
 }

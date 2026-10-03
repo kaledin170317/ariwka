@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	api "vpn/gen/node"
 	"vpn/internal/control/node/model"
 	"vpn/internal/control/node/provider"
 )
@@ -93,6 +94,129 @@ func (s Service) Inbounds(ctx context.Context, nodeID string) ([]model.Inbound, 
 	}
 
 	return node.Inbounds(ctx)
+}
+
+func (s Service) RuleSets(ctx context.Context, nodeID string) ([]*api.RuleSet, error) {
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	return node.RuleSets(ctx)
+}
+
+func (s Service) AddRuleSet(ctx context.Context, nodeID, name, url string) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return err
+	}
+
+	return node.AddRuleSet(ctx, name, url)
+}
+
+func (s Service) RemoveRuleSet(ctx context.Context, nodeID, name string) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return err
+	}
+
+	return node.RemoveRuleSet(ctx, name)
+}
+
+func (s Service) ModifyRuleSet(ctx context.Context, nodeID, name, url string) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return err
+	}
+
+	return node.ModifyRuleSet(ctx, name, url)
+}
+
+func (s Service) RouteRules(ctx context.Context, nodeID string) ([]*api.RouteRule, error) {
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	return node.RouteRules(ctx)
+}
+
+func (s Service) RemoveRouteRule(ctx context.Context, nodeID string, index uint32) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return err
+	}
+
+	return node.RemoveRouteRule(ctx, index)
+}
+
+func (s Service) AddRouteRule(ctx context.Context, nodeID string, rule model.RouteRule) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return err
+	}
+
+	return node.AddRouteRule(ctx, rule)
+}
+
+func (s Service) Outbounds(ctx context.Context, nodeID string) ([]*api.Outbound, error) {
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	return node.Outbounds(ctx)
+}
+
+func (s Service) AddOutbound(ctx context.Context, nodeID string, outbound *api.Outbound) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return err
+	}
+
+	return node.AddOutbound(ctx, outbound)
+}
+
+func (s Service) RemoveOutbound(ctx context.Context, nodeID, tag string) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return err
+	}
+
+	return node.RemoveOutbound(ctx, tag)
+}
+
+func (s Service) ModifyOutbound(ctx context.Context, nodeID, tag string, options []*api.OutboundOption) error {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	node, err := s.Get(nodeID)
+	if err != nil {
+		return err
+	}
+
+	return node.ModifyOutbound(ctx, tag, options)
 }
 
 func (s Service) AddHysteria2Inbound(ctx context.Context, nodeID string, port int32) (model.Inbound, error) {
