@@ -197,12 +197,26 @@ func (s Service) SyncUsers(ctx context.Context) error {
 }
 
 func (s Service) Get(ctx context.Context, userID string) ([]string, error) {
-	profiles, err := s.Repo.List(ctx, userID)
+	profiles, err := s.GetProfiles(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	connections := make([]string, 0, len(profiles))
+	for _, profile := range profiles {
+		connections = append(connections, profile.Link)
+	}
+
+	return connections, nil
+}
+
+func (s Service) GetProfiles(ctx context.Context, userID string) ([]model.Connection, error) {
+	profiles, err := s.Repo.List(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	connections := make([]model.Connection, 0, len(profiles))
 	for _, p := range profiles {
 		node, err := s.Nodes.Get(p.NodeID)
 		if err != nil {
@@ -214,7 +228,7 @@ func (s Service) Get(ctx context.Context, userID string) ([]string, error) {
 			return nil, err
 		}
 
-		connections = append(connections, link)
+		connections = append(connections, model.Connection{ID: p.ID, Link: link})
 	}
 
 	return connections, nil

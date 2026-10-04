@@ -39,7 +39,14 @@ message DeleteUserProfileRequest {
 message DeleteUserProfileResponse {}
 message GetConfigRequest {}
 
-message GetConfigResponse { repeated string connections = 1; }
+message GetConfigResponse {
+  repeated string connections = 1;
+  repeated ProfileConnection profiles = 2;
+}
+message ProfileConnection {
+  string id = 1;
+  string connection = 2;
+}
 
 message GetProfileRequest { string id = 1; }
 message GetProfileResponse { string connection = 1; }

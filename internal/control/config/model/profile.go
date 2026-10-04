@@ -7,3 +7,8 @@ type Profile struct {
 	Inbound  string
 	Password string
 }
+
+type Connection struct {
+	ID   string
+	Link string
+}

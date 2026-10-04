@@ -108,6 +108,8 @@ func (b telegram) action(ctx context.Context, userID, chat, id int64, data strin
 		} else {
 			view, err = p.List(requestCtx, page)
 		}
+	case strings.HasPrefix(data, "p:delete:"):
+		view, err = p.Delete(requestCtx, strings.TrimPrefix(data, "p:delete:"))
 	case strings.HasPrefix(data, "p:node:"):
 		view, err = p.Inbounds(requestCtx, strings.TrimPrefix(data, "p:node:"))
 	case strings.HasPrefix(data, "p:new:"):

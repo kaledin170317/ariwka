@@ -48,12 +48,24 @@ func (h Configs) DeleteUserProfile(ctx context.Context, req *api.DeleteUserProfi
 func (h Configs) GetConfig(ctx context.Context, _ *api.GetConfigRequest) (*api.GetConfigResponse, error) {
 	u, _ := usercontext.User(ctx)
 
-	connections, err := h.Service.Get(ctx, u.ID)
+	profiles, err := h.Service.GetProfiles(ctx, u.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &api.GetConfigResponse{Connections: connections}, nil
+	resp := &api.GetConfigResponse{
+		Connections: make([]string, 0, len(profiles)),
+		Profiles:    make([]*api.ProfileConnection, 0, len(profiles)),
+	}
+	for _, profile := range profiles {
+		resp.Connections = append(resp.Connections, profile.Link)
+		resp.Profiles = append(resp.Profiles, &api.ProfileConnection{
+			Id:         profile.ID,
+			Connection: profile.Link,
+		})
+	}
+
+	return resp, nil
 }
 
 func (h Configs) GetProfile(ctx context.Context, req *api.GetProfileRequest) (*api.GetProfileResponse, error) {

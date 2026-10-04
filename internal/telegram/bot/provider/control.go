@@ -41,6 +41,11 @@ type Inbound struct {
 	Type string
 }
 
+type Profile struct {
+	ID         string
+	Connection string
+}
+
 func Open(address, username, password string) (Control, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -75,13 +80,21 @@ func (c Control) ForUser(ctx context.Context, telegramID int64) (User, error) {
 	return User{control: c, token: resp.GetToken()}, nil
 }
 
-func (u User) Connections(ctx context.Context) ([]string, error) {
+func (u User) Profiles(ctx context.Context) ([]Profile, error) {
 	resp, err := u.control.configs.GetConfig(u.context(ctx), &api.GetConfigRequest{})
 	if err != nil {
 		return nil, err
 	}
 
-	return resp.GetConnections(), nil
+	profiles := make([]Profile, 0, len(resp.GetProfiles()))
+	for _, profile := range resp.GetProfiles() {
+		profiles = append(profiles, Profile{
+			ID:         profile.GetId(),
+			Connection: profile.GetConnection(),
+		})
+	}
+
+	return profiles, nil
 }
 
 func (u User) SubscriptionLink(ctx context.Context) (string, error) {
@@ -139,6 +152,11 @@ func (u User) CreateProfile(ctx context.Context, nodeID, tag string) (string, er
 	}
 
 	return resp.GetConnection(), nil
+}
+
+func (u User) DeleteProfile(ctx context.Context, id string) error {
+	_, err := u.control.configs.DeleteMyProfile(u.context(ctx), &api.DeleteMyProfileRequest{Id: id})
+	return err
 }
 
 func (u User) Profile(ctx context.Context, id string) (string, error) {
