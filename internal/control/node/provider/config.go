@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"slices"
+	"strings"
 
 	"vpn/internal/control/node/model"
 	"vpn/pkg/link"
@@ -26,9 +27,14 @@ func (n *Node) Config(ctx context.Context, configID, tag string) (string, error)
 }
 
 func (n *Node) Link(inbound model.Inbound, userTag string) (string, error) {
+	name := inbound.Tag
+	if flag := countryFlag(n.Country); flag != "" {
+		name = flag + " " + n.Name
+	}
+
 	if v := inbound.Vless; v != nil && slices.Contains(v.Users, userTag) {
 		return (link.Vless{
-			Tag:        inbound.Tag,
+			Tag:        name,
 			Address:    n.inboundAddress(v.Address),
 			Port:       v.Port,
 			UUID:       userTag,
@@ -48,7 +54,7 @@ func (n *Node) Link(inbound model.Inbound, userTag string) (string, error) {
 		for _, user := range h.Users {
 			if user.Name == userTag {
 				return (link.Hysteria2{
-					Tag:        inbound.Tag,
+					Tag:        name,
 					Address:    n.inboundAddress(h.Address),
 					Port:       h.Port,
 					Password:   user.Password,
@@ -69,4 +75,16 @@ func (n *Node) inboundAddress(address string) string {
 	}
 
 	return address
+}
+
+func countryFlag(code string) string {
+	code = strings.ToUpper(code)
+	if len(code) != 2 || code[0] < 'A' || code[0] > 'Z' || code[1] < 'A' || code[1] > 'Z' {
+		return ""
+	}
+
+	return string([]rune{
+		'🇦' + rune(code[0]-'A'),
+		'🇦' + rune(code[1]-'A'),
+	})
 }
