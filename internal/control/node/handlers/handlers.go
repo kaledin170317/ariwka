@@ -15,16 +15,21 @@ type Nodes struct {
 }
 
 func (h Nodes) AddNode(ctx context.Context, req *api.AddNodeRequest) (*api.Node, error) {
-	n, err := h.Service.Create(ctx, req.GetName(), req.GetAddress())
+	n, err := h.Service.Create(ctx, req.GetName(), req.GetAddress(), req.GetDescription())
 	if err != nil {
 		return nil, err
 	}
 
-	return &api.Node{
-		Id:      n.ID,
-		Name:    n.Name,
-		Address: n.Address,
-	}, nil
+	return nodeProto(n), nil
+}
+
+func (h Nodes) ModifyNode(ctx context.Context, req *api.ModifyNodeRequest) (*api.Node, error) {
+	n, err := h.Service.Modify(ctx, req.GetId(), req.GetOptions())
+	if err != nil {
+		return nil, err
+	}
+
+	return nodeProto(n), nil
 }
 
 func (h Nodes) DeleteNode(ctx context.Context, req *api.DeleteNodeRequest) (*api.DeleteNodeResponse, error) {
@@ -40,11 +45,7 @@ func (h Nodes) GetNodes(ctx context.Context, _ *api.GetNodesRequest) (*api.GetNo
 
 	resp := &api.GetNodesResponse{Nodes: make([]*api.Node, 0, len(nodes))}
 	for _, n := range nodes {
-		resp.Nodes = append(resp.Nodes, &api.Node{
-			Id:      n.ID,
-			Name:    n.Name,
-			Address: n.Address,
-		})
+		resp.Nodes = append(resp.Nodes, nodeProto(n))
 	}
 
 	return resp, nil
@@ -166,6 +167,16 @@ func (h Nodes) RemoveNodeOutbound(ctx context.Context, req *api.RemoveNodeOutbou
 func (h Nodes) ModifyNodeOutbound(ctx context.Context, req *api.ModifyNodeOutboundRequest) (*api.ModifyNodeOutboundResponse, error) {
 	err := h.Service.ModifyOutbound(ctx, req.GetNodeId(), req.GetTag(), req.GetOptions())
 	return &api.ModifyNodeOutboundResponse{}, err
+}
+
+func nodeProto(n model.Node) *api.Node {
+	return &api.Node{
+		Id:          n.ID,
+		Name:        n.Name,
+		Address:     n.Address,
+		Description: n.Description,
+		Country:     n.Country,
+	}
 }
 
 func inboundProto(inbound model.Inbound) *common.Inbound {

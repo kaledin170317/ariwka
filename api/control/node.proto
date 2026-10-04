@@ -10,6 +10,7 @@ import "node/route.proto";
 
 service NodeService {
   rpc AddNode(AddNodeRequest) returns (Node);
+  rpc ModifyNode(ModifyNodeRequest) returns (Node);
   rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
   rpc GetNodes(GetNodesRequest) returns (GetNodesResponse);
   rpc GetNodeInbounds(GetNodeInboundsRequest) returns (GetNodeInboundsResponse);
@@ -33,11 +34,27 @@ message Node {
   string id = 1;
   string name = 2;
   string address = 3;
+  string description = 4;
+  string country = 5;
 }
 
 message AddNodeRequest {
   string name = 1;
   string address = 2;
+  string description = 3;
+}
+
+message ModifyNodeRequest {
+  string id = 1;
+  repeated NodeOption options = 2;
+}
+
+message NodeOption {
+  oneof value {
+    string name = 1;
+    string address = 2;
+    string description = 3;
+  }
 }
 
 message DeleteNodeRequest { string id = 1; }

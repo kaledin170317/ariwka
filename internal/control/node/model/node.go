@@ -25,9 +25,11 @@ type VlessTransportOptions struct {
 }
 
 type Node struct {
-	ID      string
-	Name    string
-	Address string
+	ID          string
+	Name        string
+	Address     string
+	Description string
+	Country     string
 }
 
 type InboundConfig struct {

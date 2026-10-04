@@ -14,12 +14,37 @@ type SQLite struct{ DB *sql.DB }
 func (r SQLite) Create(ctx context.Context, n model.Node) error {
 	_, err := sq.
 		Insert("nodes").
-		Columns("id", "name", "address").
-		Values(n.ID, n.Name, n.Address).
+		Columns("id", "name", "address", "description", "country").
+		Values(n.ID, n.Name, n.Address, n.Description, n.Country).
 		RunWith(r.DB).
 		ExecContext(ctx)
 
 	return err
+}
+
+func (r SQLite) Update(ctx context.Context, n model.Node) error {
+	result, err := sq.
+		Update("nodes").
+		Set("name", n.Name).
+		Set("address", n.Address).
+		Set("description", n.Description).
+		Where(sq.Eq{"id": n.ID}).
+		RunWith(r.DB).
+		ExecContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }
 
 func (r SQLite) Delete(ctx context.Context, id string) error {
@@ -34,7 +59,7 @@ func (r SQLite) Delete(ctx context.Context, id string) error {
 
 func (r SQLite) List(ctx context.Context) ([]model.Node, error) {
 	rows, err := sq.
-		Select("id", "name", "address").
+		Select("id", "name", "address", "description", "country").
 		From("nodes").
 		OrderBy("name").
 		RunWith(r.DB).
@@ -49,7 +74,7 @@ func (r SQLite) List(ctx context.Context) ([]model.Node, error) {
 	for rows.Next() {
 		var n model.Node
 
-		err = rows.Scan(&n.ID, &n.Name, &n.Address)
+		err = rows.Scan(&n.ID, &n.Name, &n.Address, &n.Description, &n.Country)
 		if err != nil {
 			return nil, err
 		}
