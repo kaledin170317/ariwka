@@ -11,8 +11,8 @@ import (
 func (r Postgres) CreateInbound(ctx context.Context, config model.InboundConfig) error {
 	_, err := builder.
 		Insert("node_inbounds").
-		Columns("tag", "node_id", "type", "port", "server_name", "transport_type", "transport_host", "transport_path", "service_name", "private_key", "short_id").
-		Values(config.Tag, config.NodeID, config.Type, config.Port, config.ServerName, config.Transport.Type, config.Transport.Host, config.Transport.Path, config.ServiceName, config.PrivateKey, config.ShortID).
+		Columns("tag", "node_id", "type", "port", "server_name", "transport_type", "transport_host", "transport_path", "service_name", "private_key", "short_id", "network", "internal_uuid").
+		Values(config.Tag, config.NodeID, config.Type, config.Port, config.ServerName, config.Transport.Type, config.Transport.Host, config.Transport.Path, config.ServiceName, config.PrivateKey, config.ShortID, config.Network, config.InternalUUID).
 		RunWith(r.DB).
 		ExecContext(ctx)
 
@@ -21,7 +21,7 @@ func (r Postgres) CreateInbound(ctx context.Context, config model.InboundConfig)
 
 func (r Postgres) ListInbounds(ctx context.Context, nodeID string) ([]model.InboundConfig, error) {
 	rows, err := builder.
-		Select("tag", "node_id", "type", "port", "server_name", "transport_type", "transport_host", "transport_path", "service_name", "private_key", "short_id").
+		Select("tag", "node_id", "type", "port", "server_name", "transport_type", "transport_host", "transport_path", "service_name", "private_key", "short_id", "network", "internal_uuid").
 		From("node_inbounds").
 		Where(sq.Eq{"node_id": nodeID}).
 		OrderBy("tag").
@@ -40,7 +40,7 @@ func (r Postgres) ListInbounds(ctx context.Context, nodeID string) ([]model.Inbo
 			kind   int32
 		)
 
-		err := rows.Scan(&config.Tag, &config.NodeID, &kind, &config.Port, &config.ServerName, &config.Transport.Type, &config.Transport.Host, &config.Transport.Path, &config.ServiceName, &config.PrivateKey, &config.ShortID)
+		err := rows.Scan(&config.Tag, &config.NodeID, &kind, &config.Port, &config.ServerName, &config.Transport.Type, &config.Transport.Host, &config.Transport.Path, &config.ServiceName, &config.PrivateKey, &config.ShortID, &config.Network, &config.InternalUUID)
 		if err != nil {
 			return nil, err
 		}

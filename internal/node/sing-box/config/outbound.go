@@ -139,6 +139,7 @@ func (c *Config) AddOutbound(value Outbound) error {
 	}
 
 	if value.Type == OutboundTypeVless {
+		item.TLS.UTLS = &outboundUTLS{Enabled: true, Fingerprint: "chrome"}
 		item.TLS.Reality = &outboundReality{
 			Enabled:   true,
 			PublicKey: value.PublicKey,
@@ -191,6 +192,10 @@ func (c *Config) ModifyOutbound(tag string, options []OutboundOption) error {
 
 			if item.Type == OutboundTypeVless && item.TLS.Reality == nil {
 				item.TLS.Reality = &outboundReality{Enabled: true}
+			}
+
+			if item.Type == OutboundTypeVless {
+				item.TLS.UTLS = &outboundUTLS{Enabled: true, Fingerprint: "chrome"}
 			}
 
 			for _, option := range options {

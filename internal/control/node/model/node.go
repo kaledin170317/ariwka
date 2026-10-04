@@ -11,6 +11,9 @@ type InboundType int32
 // ENUM(grpc=1, http)
 type VlessTransportType int32
 
+// ENUM(users=1, internal)
+type InboundNetwork int32
+
 type VlessTransport struct {
 	Type        VlessTransportType
 	ServiceName string
@@ -33,19 +36,22 @@ type Node struct {
 }
 
 type InboundConfig struct {
-	Tag         string
-	NodeID      string
-	Type        InboundType
-	Port        int32
-	ServerName  string
-	Transport   VlessTransportOptions
-	ServiceName string
-	PrivateKey  string
-	ShortID     string
+	Tag          string
+	NodeID       string
+	Type         InboundType
+	Port         int32
+	ServerName   string
+	Transport    VlessTransportOptions
+	ServiceName  string
+	PrivateKey   string
+	ShortID      string
+	Network      InboundNetwork
+	InternalUUID string
 }
 
 type Inbound struct {
 	Tag       string
+	Network   InboundNetwork
 	Hysteria2 *Hysteria2
 	Vless     *Vless
 }

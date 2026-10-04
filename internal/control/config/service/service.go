@@ -28,6 +28,7 @@ type Repository interface {
 type Nodes interface {
 	Get(string) (*provider.Node, error)
 	List(context.Context) ([]nodemodel.Node, error)
+	Inbounds(context.Context, string) ([]nodemodel.Inbound, error)
 }
 
 type Users interface {
@@ -55,7 +56,7 @@ func (s Service) Create(ctx context.Context, userID, nodeID, inbound string) (st
 		return "", "", err
 	}
 
-	inbounds, err := node.Inbounds(ctx)
+	inbounds, err := s.Nodes.Inbounds(ctx, nodeID)
 	if err != nil {
 		return "", "", err
 	}
@@ -63,7 +64,7 @@ func (s Service) Create(ctx context.Context, userID, nodeID, inbound string) (st
 	var selected nodemodel.Inbound
 
 	for _, item := range inbounds {
-		if item.Tag == inbound {
+		if item.Tag == inbound && item.Network == nodemodel.InboundNetworkUsers {
 			selected = item
 			break
 		}

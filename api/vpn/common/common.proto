@@ -10,6 +10,12 @@ enum VlessTransportType {
   VLESS_TRANSPORT_TYPE_HTTP = 2;
 }
 
+enum InboundNetwork {
+  INBOUND_NETWORK_UNSPECIFIED = 0;
+  INBOUND_NETWORK_USERS = 1;
+  INBOUND_NETWORK_INTERNAL = 2;
+}
+
 message VlessTransportOptions {
   VlessTransportType type = 1;
   string host = 2;
@@ -31,6 +37,7 @@ message Inbound {
     Hysteria2Inbound hysteria2 = 4;
     VlessInbound vless = 5;
   }
+  InboundNetwork network = 6;
 }
 
 message Hysteria2Inbound {

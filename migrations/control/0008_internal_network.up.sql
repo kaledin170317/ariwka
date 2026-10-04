@@ -1,0 +1,2 @@
+ALTER TABLE node_inbounds ADD COLUMN network INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE node_inbounds ADD COLUMN internal_uuid TEXT NOT NULL DEFAULT '';

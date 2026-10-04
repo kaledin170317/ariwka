@@ -128,6 +128,10 @@ func (u User) Inbounds(ctx context.Context, nodeID string) ([]Inbound, error) {
 
 	inbounds := make([]Inbound, 0, len(resp.GetInbounds()))
 	for _, inbound := range resp.GetInbounds() {
+		if inbound.GetNetwork() == common.InboundNetwork_INBOUND_NETWORK_INTERNAL {
+			continue
+		}
+
 		if inbound.GetHysteria2() != nil {
 			inbounds = append(inbounds, Inbound{Tag: inbound.GetTag(), Type: "hysteria2"})
 		}

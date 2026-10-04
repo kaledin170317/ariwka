@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -155,7 +156,26 @@ func (s Service) Inbounds(ctx context.Context, nodeID string) ([]model.Inbound, 
 		return nil, err
 	}
 
-	return node.Inbounds(ctx)
+	inbounds, err := node.Inbounds(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	configs, err := s.Repo.ListInbounds(ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range inbounds {
+		for _, config := range configs {
+			if config.Tag == inbounds[i].Tag {
+				inbounds[i].Network = config.Network
+				break
+			}
+		}
+	}
+
+	return inbounds, nil
 }
 
 func (s Service) RuleSets(ctx context.Context, nodeID string) ([]*api.RuleSet, error) {
@@ -246,6 +266,10 @@ func (s Service) Outbounds(ctx context.Context, nodeID string) ([]*api.Outbound,
 }
 
 func (s Service) AddOutbound(ctx context.Context, nodeID string, outbound *api.Outbound) error {
+	if outbound == nil || strings.HasPrefix(outbound.GetTag(), meshPrefix) {
+		return errors.New("reserved outbound tag")
+	}
+
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -258,6 +282,10 @@ func (s Service) AddOutbound(ctx context.Context, nodeID string, outbound *api.O
 }
 
 func (s Service) RemoveOutbound(ctx context.Context, nodeID, tag string) error {
+	if strings.HasPrefix(tag, meshPrefix) {
+		return errors.New("reserved outbound tag")
+	}
+
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -270,6 +298,10 @@ func (s Service) RemoveOutbound(ctx context.Context, nodeID, tag string) error {
 }
 
 func (s Service) ModifyOutbound(ctx context.Context, nodeID, tag string, options []*api.OutboundOption) error {
+	if strings.HasPrefix(tag, meshPrefix) {
+		return errors.New("reserved outbound tag")
+	}
+
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -291,10 +323,11 @@ func (s Service) AddHysteria2Inbound(ctx context.Context, nodeID string, port in
 	}
 
 	config := model.InboundConfig{
-		Tag:    uuid.NewString(),
-		NodeID: nodeID,
-		Type:   model.InboundTypeHysteria2,
-		Port:   port,
+		Tag:     uuid.NewString(),
+		NodeID:  nodeID,
+		Type:    model.InboundTypeHysteria2,
+		Port:    port,
+		Network: model.InboundNetworkUsers,
 	}
 
 	err = s.Repo.CreateInbound(ctx, config)
@@ -341,6 +374,7 @@ func (s Service) AddVlessInbound(ctx context.Context, nodeID string, port int32,
 		Transport:  transport,
 		PrivateKey: base64.RawURLEncoding.EncodeToString(key),
 		ShortID:    hex.EncodeToString(short),
+		Network:    model.InboundNetworkUsers,
 	}
 	if transport.Type == model.VlessTransportTypeGrpc {
 		config.ServiceName = rand.Text()
@@ -355,6 +389,10 @@ func (s Service) AddVlessInbound(ctx context.Context, nodeID string, port int32,
 }
 
 func (s Service) DeleteInbound(ctx context.Context, nodeID, tag string) error {
+	if strings.HasPrefix(tag, meshPrefix) {
+		return errors.New("reserved inbound tag")
+	}
+
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 

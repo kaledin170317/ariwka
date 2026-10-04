@@ -31,6 +31,11 @@ tasks:
       - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}} --tags deploy
       - ansible-playbook -i {{.INVENTORY}} {{.CONTROL_PLAYBOOK}} --tags deploy
       - ansible-playbook -i {{.INVENTORY}} {{.TELEGRAM_PLAYBOOK}} --tags deploy
+      -
+  init:
+    desc: Init nodes
+    cmds:
+      - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}}  --tags init
 
   build:
     desc: Build Go binaries

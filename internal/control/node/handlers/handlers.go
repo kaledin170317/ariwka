@@ -60,6 +60,7 @@ func (h Nodes) GetNodeInbounds(ctx context.Context, req *api.GetNodeInboundsRequ
 	resp := &api.GetNodeInboundsResponse{Inbounds: make([]*common.Inbound, 0, len(inbounds))}
 	for _, inbound := range inbounds {
 		if result := inboundProto(inbound); result != nil {
+			result.Network = common.InboundNetwork(inbound.Network)
 			resp.Inbounds = append(resp.Inbounds, result)
 		}
 	}

@@ -7,9 +7,9 @@
     sing_box_version: "1.14.0"
 
   tasks:
-    - name: Setup
+    - name: Init
       tags:
-        - setup
+        - init
       block:
         - name: Install dependencies
           ansible.builtin.apt:
@@ -23,6 +23,22 @@
           ansible.builtin.shell:
             cmd: curl -fsSL https://sing-box.app/install.sh | sh -s -- --version {{ sing_box_version }}
             creates: /usr/bin/sing-box
+
+        - name: Create default sing-box config
+          ansible.builtin.copy:
+            src: artefacts/sing-box.json
+            dest: /etc/sing-box/config.json
+            mode: "0644"
+
+        - name: Restart sing-box service
+          ansible.builtin.systemd_service:
+            name: sing-box
+            state: restarted
+
+    - name: Setup
+      tags:
+        - setup
+      block:
 
         - name: Create environment file
           ansible.builtin.copy:

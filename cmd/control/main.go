@@ -65,11 +65,12 @@ func main() {
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			inboundErr := nodes.SyncInbounds(ctx)
+			meshErr := nodes.SyncMesh(ctx)
 			userErr := configs.SyncUsers(ctx)
 
 			cancel()
 
-			syncErr := errors.Join(inboundErr, userErr)
+			syncErr := errors.Join(inboundErr, meshErr, userErr)
 			if syncErr != nil {
 				log.Printf("node sync: %v", syncErr)
 			}

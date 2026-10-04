@@ -13,7 +13,7 @@ import (
 
 const (
 	configPath    = "/etc/sing-box/config.json"
-	tmpConfigPath = "/etc/sing-box/config.tmp.json"
+	tmpConfigPath = "/etc/sing-box/config.tmp"
 )
 
 func New() Config {
