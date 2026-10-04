@@ -42,10 +42,10 @@ func main() {
 	defer db.Close()
 
 	jwt := auth.JWT{Secret: []byte(env.GetJWTSecret())}
-	usersDB := userrepo.SQLite{DB: db}
+	usersDB := userrepo.Postgres{DB: db}
 	users := userservice.Service{Repo: usersDB}
 	stateMu := &sync.Mutex{}
-	nodes := nodeservice.Service{Repo: noderepo.SQLite{DB: db}, Mu: stateMu}
+	nodes := nodeservice.Service{Repo: noderepo.Postgres{DB: db}, Mu: stateMu}
 
 	nodeProvider, err := provider.New(context.Background(), nodes.Repo)
 	if err != nil {
@@ -55,7 +55,7 @@ func main() {
 
 	nodes.Provider = nodeProvider
 	configs := configservice.Service{
-		Repo:  configrepo.SQLite{DB: db},
+		Repo:  configrepo.Postgres{DB: db},
 		Nodes: nodes,
 		Users: users,
 		Mu:    stateMu,
@@ -79,7 +79,7 @@ func main() {
 	}()
 
 	login := authservice.Service{
-		Repo:  authrepo.SQLite{DB: db},
+		Repo:  authrepo.Postgres{DB: db},
 		JWT:   jwt,
 		Users: users,
 	}

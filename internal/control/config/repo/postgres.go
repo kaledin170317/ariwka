@@ -9,10 +9,12 @@ import (
 	"vpn/internal/control/config/model"
 )
 
-type SQLite struct{ DB *sql.DB }
+type Postgres struct{ DB *sql.DB }
 
-func (r SQLite) Create(ctx context.Context, p model.Profile) error {
-	_, err := sq.
+var builder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+
+func (r Postgres) Create(ctx context.Context, p model.Profile) error {
+	_, err := builder.
 		Insert("profiles").
 		Columns("id", "user_id", "node_id", "inbound", "password").
 		Values(p.ID, p.UserID, p.NodeID, p.Inbound, p.Password).
@@ -22,10 +24,10 @@ func (r SQLite) Create(ctx context.Context, p model.Profile) error {
 	return err
 }
 
-func (r SQLite) Get(ctx context.Context, userID, id string) (model.Profile, error) {
+func (r Postgres) Get(ctx context.Context, userID, id string) (model.Profile, error) {
 	var p model.Profile
 
-	err := sq.
+	err := builder.
 		Select("id", "user_id", "node_id", "inbound", "password").
 		From("profiles").
 		Where(sq.Eq{"id": id, "user_id": userID}).
@@ -36,8 +38,8 @@ func (r SQLite) Get(ctx context.Context, userID, id string) (model.Profile, erro
 	return p, err
 }
 
-func (r SQLite) List(ctx context.Context, userID string) ([]model.Profile, error) {
-	rows, err := sq.
+func (r Postgres) List(ctx context.Context, userID string) ([]model.Profile, error) {
+	rows, err := builder.
 		Select("id", "user_id", "node_id", "inbound", "password").
 		From("profiles").
 		Where(sq.Eq{"user_id": userID}).
@@ -65,8 +67,8 @@ func (r SQLite) List(ctx context.Context, userID string) ([]model.Profile, error
 	return profiles, rows.Err()
 }
 
-func (r SQLite) ListByInbound(ctx context.Context, tag string) ([]model.Profile, error) {
-	rows, err := sq.
+func (r Postgres) ListByInbound(ctx context.Context, tag string) ([]model.Profile, error) {
+	rows, err := builder.
 		Select("id", "user_id", "node_id", "inbound", "password").
 		From("profiles").
 		Where(sq.Eq{"inbound": tag}).
@@ -93,8 +95,8 @@ func (r SQLite) ListByInbound(ctx context.Context, tag string) ([]model.Profile,
 	return profiles, rows.Err()
 }
 
-func (r SQLite) SavePassword(ctx context.Context, id, password string) error {
-	_, err := sq.
+func (r Postgres) SavePassword(ctx context.Context, id, password string) error {
+	_, err := builder.
 		Update("profiles").
 		Set("password", password).
 		Where(sq.Eq{"id": id, "password": ""}).
@@ -104,8 +106,8 @@ func (r SQLite) SavePassword(ctx context.Context, id, password string) error {
 	return err
 }
 
-func (r SQLite) Delete(ctx context.Context, userID, id string) error {
-	_, err := sq.
+func (r Postgres) Delete(ctx context.Context, userID, id string) error {
+	_, err := builder.
 		Delete("profiles").
 		Where(sq.Eq{"id": id, "user_id": userID}).
 		RunWith(r.DB).

@@ -3,7 +3,7 @@ Description=VPN Telegram bot
 After=network-online.target control.service
 
 [Service]
-EnvironmentFile=/etc/telegram-bot/bot.env
+EnvironmentFile=/etc/control/.env
 ExecStart=/usr/local/bin/telegram
 Restart=always
 RestartSec=2

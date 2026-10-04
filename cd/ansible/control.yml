@@ -14,12 +14,68 @@
               - curl
               - ca-certificates
               - openssl
+              - docker.io
+              - docker-compose
             update_cache: true
             state: present
-    
+
+        - name: Start Docker
+          ansible.builtin.systemd_service:
+            name: docker
+            enabled: true
+            state: started
+
+        - name: Create control directories
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: directory
+            mode: "0700"
+          loop:
+            - /var/lib/control
+            - /var/lib/control/certs
+            - /etc/control
+
+        - name: Stop previous host PostgreSQL
+          ansible.builtin.service_facts:
+
+        - name: Disable previous host PostgreSQL
+          ansible.builtin.systemd_service:
+            name: postgresql
+            state: stopped
+            enabled: false
+          when: "'postgresql.service' in ansible_facts.services"
+
+    - name: Copy secrets
+      tags:
+        - setup
+        - deploy
+      ansible.builtin.copy:
+        src: ../../.env
+        dest: /etc/control/.env
+        mode: "0600"
+      no_log: true
+
+    - name: Start PostgreSQL container
+      tags:
+        - setup
+      block:
+        - name: Copy PostgreSQL Compose file
+          ansible.builtin.copy:
+            src: artefacts/postgres.yml
+            dest: /etc/control/postgres.yml
+            mode: "0644"
+
+        - name: Run PostgreSQL Compose
+          ansible.builtin.command: docker-compose --env-file /etc/control/.env -f /etc/control/postgres.yml up -d --wait
+
+    - name: Deploy
+      tags:
+        - setup
+        - deploy
+      block:
         - name: Copy systemd service
           ansible.builtin.copy:
-            src:  artefacts/control.service
+            src: artefacts/control.service
             dest: /etc/systemd/system/control.service
             mode: "0644"
 
@@ -29,44 +85,6 @@
             enabled: true
             daemon_reload: true
 
-        - name: Create control data directory
-          ansible.builtin.file:
-            path: /var/lib/control
-            state: directory
-            mode: "0700"
-
-        - name: Create certificate cache directory
-          ansible.builtin.file:
-            path: /var/lib/control/certs
-            state: directory
-            mode: "0700"
-
-        - name: Create control configuration directory
-          ansible.builtin.file:
-            path: /etc/control
-            state: directory
-            mode: "0700"
-
-        - name: Check control configuration
-          ansible.builtin.stat:
-            path: /etc/control/control.env
-          register: control_env
-
-        - name: Generate JWT secret
-          ansible.builtin.command: openssl rand -hex 32
-          register: jwt_secret
-          when: not control_env.stat.exists
-          no_log: true
-
-        - name: Write control configuration
-          ansible.builtin.copy:
-            content: |
-              JWT_SECRET={{ jwt_secret.stdout }}
-            dest: /etc/control/control.env
-            mode: "0600"
-          when: not control_env.stat.exists
-          no_log: true
-        
         - name: Create migrations directory
           ansible.builtin.file:
             path: /usr/share/control/migrations
@@ -86,24 +104,15 @@
             mode: "0644"
         
         - name: Apply database migrations
-          ansible.builtin.command:
-            argv:
-              - /usr/local/bin/migrate
-              - -path
-              - /usr/share/control/migrations
-              - -database
-              - sqlite:///var/lib/control/control.db
-              - up
+          ansible.builtin.shell: >-
+            . /etc/control/.env &&
+            /usr/local/bin/migrate -path /usr/share/control/migrations
+            -database "$DATABASE_URL" up
           register: migration
           changed_when: >
             'no change' not in migration.stdout | lower and
             'no change' not in migration.stderr | lower
 
-    - name: Deploy
-      tags:
-        - setup
-        - deploy
-      block:
         - name: Copy binary
           ansible.builtin.copy:
             src: ../../bin/control

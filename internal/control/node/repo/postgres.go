@@ -9,10 +9,12 @@ import (
 	"vpn/internal/control/node/model"
 )
 
-type SQLite struct{ DB *sql.DB }
+type Postgres struct{ DB *sql.DB }
 
-func (r SQLite) Create(ctx context.Context, n model.Node) error {
-	_, err := sq.
+var builder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+
+func (r Postgres) Create(ctx context.Context, n model.Node) error {
+	_, err := builder.
 		Insert("nodes").
 		Columns("id", "name", "address", "description", "country").
 		Values(n.ID, n.Name, n.Address, n.Description, n.Country).
@@ -22,8 +24,8 @@ func (r SQLite) Create(ctx context.Context, n model.Node) error {
 	return err
 }
 
-func (r SQLite) Update(ctx context.Context, n model.Node) error {
-	result, err := sq.
+func (r Postgres) Update(ctx context.Context, n model.Node) error {
+	result, err := builder.
 		Update("nodes").
 		Set("name", n.Name).
 		Set("address", n.Address).
@@ -47,8 +49,8 @@ func (r SQLite) Update(ctx context.Context, n model.Node) error {
 	return nil
 }
 
-func (r SQLite) Delete(ctx context.Context, id string) error {
-	_, err := sq.
+func (r Postgres) Delete(ctx context.Context, id string) error {
+	_, err := builder.
 		Delete("nodes").
 		Where(sq.Eq{"id": id}).
 		RunWith(r.DB).
@@ -57,8 +59,8 @@ func (r SQLite) Delete(ctx context.Context, id string) error {
 	return err
 }
 
-func (r SQLite) List(ctx context.Context) ([]model.Node, error) {
-	rows, err := sq.
+func (r Postgres) List(ctx context.Context) ([]model.Node, error) {
+	rows, err := builder.
 		Select("id", "name", "address", "description", "country").
 		From("nodes").
 		OrderBy("name").

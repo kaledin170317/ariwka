@@ -8,10 +8,12 @@ import (
 	"vpn/internal/control/user/model"
 )
 
-type SQLite struct{ DB *sql.DB }
+type Postgres struct{ DB *sql.DB }
 
-func (r SQLite) CreatePassword(ctx context.Context, u model.User, hash string) error {
-	_, err := sq.
+var builder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+
+func (r Postgres) CreatePassword(ctx context.Context, u model.User, hash string) error {
+	_, err := builder.
 		Insert("identities").
 		Columns("user_id", "provider", "subject", "secret_hash").
 		Values(u.ID, "password", u.Username, hash).
@@ -21,10 +23,10 @@ func (r SQLite) CreatePassword(ctx context.Context, u model.User, hash string) e
 	return err
 }
 
-func (r SQLite) Password(ctx context.Context, username string) (string, string, error) {
+func (r Postgres) Password(ctx context.Context, username string) (string, string, error) {
 	var id, hash string
 
-	err := sq.
+	err := builder.
 		Select("u.id", "i.secret_hash").
 		From("identities i").
 		Join("users u ON u.id = i.user_id").

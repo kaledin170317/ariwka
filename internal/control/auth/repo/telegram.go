@@ -8,10 +8,10 @@ import (
 	sq "github.com/Masterminds/squirrel"
 )
 
-func (r SQLite) TelegramUser(ctx context.Context, subject, newID string) (string, error) {
+func (r Postgres) TelegramUser(ctx context.Context, subject, newID string) (string, error) {
 	var id string
 
-	err := sq.
+	err := builder.
 		Select("user_id").
 		From("identities").
 		Where(sq.Eq{"provider": "telegram", "subject": subject}).
@@ -28,7 +28,7 @@ func (r SQLite) TelegramUser(ctx context.Context, subject, newID string) (string
 	}
 	defer tx.Rollback()
 
-	_, err = sq.
+	_, err = builder.
 		Insert("users").
 		Columns("id", "username", "role").
 		Values(newID, "telegram:"+subject, "user").
@@ -38,7 +38,7 @@ func (r SQLite) TelegramUser(ctx context.Context, subject, newID string) (string
 		return "", err
 	}
 
-	_, err = sq.
+	_, err = builder.
 		Insert("identities").
 		Columns("user_id", "provider", "subject").
 		Values(newID, "telegram", subject).

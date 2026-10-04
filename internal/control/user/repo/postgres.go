@@ -9,10 +9,12 @@ import (
 	"vpn/internal/control/user/model"
 )
 
-type SQLite struct{ DB *sql.DB }
+type Postgres struct{ DB *sql.DB }
 
-func (r SQLite) Create(ctx context.Context, u model.User) (model.User, error) {
-	_, err := sq.
+var builder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+
+func (r Postgres) Create(ctx context.Context, u model.User) (model.User, error) {
+	_, err := builder.
 		Insert("users").
 		Columns("id", "username").
 		Values(u.ID, u.Username).
@@ -23,7 +25,7 @@ func (r SQLite) Create(ctx context.Context, u model.User) (model.User, error) {
 		return model.User{}, err
 	}
 
-	err = sq.
+	err = builder.
 		Select("id", "username", "role").
 		From("users").
 		Where(sq.Eq{"username": u.Username}).
@@ -34,8 +36,8 @@ func (r SQLite) Create(ctx context.Context, u model.User) (model.User, error) {
 	return u, err
 }
 
-func (r SQLite) List(ctx context.Context) ([]model.User, error) {
-	rows, err := sq.
+func (r Postgres) List(ctx context.Context) ([]model.User, error) {
+	rows, err := builder.
 		Select("id", "username", "role").
 		From("users").
 		OrderBy("username").
@@ -62,10 +64,10 @@ func (r SQLite) List(ctx context.Context) ([]model.User, error) {
 	return users, rows.Err()
 }
 
-func (r SQLite) Get(ctx context.Context, id string) (model.User, error) {
+func (r Postgres) Get(ctx context.Context, id string) (model.User, error) {
 	var u model.User
 
-	err := sq.
+	err := builder.
 		Select("id", "username", "role").
 		From("users").
 		Where(sq.Eq{"id": id}).
