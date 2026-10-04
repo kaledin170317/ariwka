@@ -8,7 +8,6 @@ type Button struct {
 type View struct {
 	Text    string
 	Buttons [][]Button
-	Notice  string
 }
 
 func Home() View {

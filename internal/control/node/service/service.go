@@ -445,9 +445,21 @@ func (s Service) syncNode(ctx context.Context, nodeID string) error {
 		return err
 	}
 
+	desiredTags := make(map[string]bool, len(desired))
+	for _, config := range desired {
+		desiredTags[config.Tag] = true
+	}
+
 	tags := make(map[string]model.Inbound, len(current))
 	for _, inbound := range current {
-		tags[inbound.Tag] = inbound
+		if desiredTags[inbound.Tag] {
+			tags[inbound.Tag] = inbound
+		} else {
+			err = node.RemoveInbound(ctx, inbound.Tag)
+			if err != nil {
+				return fmt.Errorf("remove extra inbound %s: %w", inbound.Tag, err)
+			}
+		}
 	}
 
 	var failures []error

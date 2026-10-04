@@ -66,13 +66,10 @@ func (s Service) Create(ctx context.Context, nodeID, key string) (screens.View, 
 				return screens.View{}, err
 			}
 
-			view := screens.View{
-				Text:    "Профиль создан. Ссылка отправлена отдельным сообщением.",
+			return screens.View{
+				Text:    "Профиль создан:\n<code>" + html.EscapeString(connection) + "</code>",
 				Buttons: [][]screens.Button{{{Text: "← Профили", Data: "profiles"}}},
-			}
-			view.Notice = "<code>" + html.EscapeString(connection) + "</code>"
-
-			return view, nil
+			}, nil
 		}
 	}
 

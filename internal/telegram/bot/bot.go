@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"log"
 	"net/http"
 	"net/url"
@@ -12,7 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc/status"
+
 	"vpn/internal/telegram/bot/provider"
+	"vpn/internal/telegram/bot/screens"
 )
 
 type update struct {
@@ -62,7 +66,7 @@ func (b telegram) call(ctx context.Context, method string, values url.Values, re
 
 	resp, err := b.http.Do(req)
 	if err != nil {
-		return errors.New("telegram connection failed")
+		return fmt.Errorf("telegram connection failed: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -87,25 +91,19 @@ func (b telegram) call(ctx context.Context, method string, values url.Values, re
 		}
 	}
 
+	if !body.OK {
+		if body.Description != "" {
+			return errors.New(body.Description)
+		}
+
+		return errors.New("telegram API error")
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("telegram HTTP %d", resp.StatusCode)
 	}
 
-	if !body.OK {
-		return errors.New("telegram API error")
-	}
-
 	return json.Unmarshal(body.Result, result)
-}
-
-func (b telegram) send(ctx context.Context, chat int64, text string) error {
-	var result json.RawMessage
-
-	return b.call(ctx, "sendMessage", url.Values{
-		"chat_id":    {strconv.FormatInt(chat, 10)},
-		"text":       {text},
-		"parse_mode": {"HTML"},
-	}, &result)
 }
 
 func Run(ctx context.Context, token, username, password, address string) error {
@@ -150,19 +148,24 @@ func Run(ctx context.Context, token, username, password, address string) error {
 			if err != nil {
 				log.Print(err)
 
-				chat := int64(0)
+				chat, id := int64(0), int64(0)
 				if u.Message != nil {
 					chat = u.Message.Chat.ID
+					id = b.messages[chat]
 				}
 
 				if u.Callback != nil && u.Callback.Message != nil {
 					chat = u.Callback.Message.Chat.ID
+					id = u.Callback.Message.ID
 				}
 
 				if chat != 0 {
-					sendErr := b.send(ctx, chat, "Не удалось выполнить команду. Попробуй позже.")
-					if sendErr != nil {
-						log.Print(sendErr)
+					view := screens.Home()
+					view.Text = "Ошибка: " + html.EscapeString(errorText(err))
+
+					renderErr := b.render(ctx, chat, id, view)
+					if renderErr != nil {
+						log.Print(renderErr)
 					}
 				}
 			}
@@ -174,4 +177,12 @@ func Run(ctx context.Context, token, username, password, address string) error {
 	}
 
 	return ctx.Err()
+}
+
+func errorText(err error) string {
+	if grpcStatus, ok := status.FromError(err); ok {
+		return grpcStatus.Message()
+	}
+
+	return err.Error()
 }

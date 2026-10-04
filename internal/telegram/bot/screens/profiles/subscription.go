@@ -14,10 +14,9 @@ func (s Service) Subscription(ctx context.Context) (screens.View, error) {
 	}
 
 	return screens.View{
-		Text: "Ссылка подписки Happ отправлена отдельным сообщением. Добавь её в Happ как подписку.",
+		Text: "Добавь эту ссылку в Happ как подписку:\n<code>" + html.EscapeString(url) + "</code>",
 		Buttons: [][]screens.Button{
 			{{Text: "← Профили", Data: "profiles"}},
 		},
-		Notice: "<code>" + html.EscapeString(url) + "</code>",
 	}, nil
 }

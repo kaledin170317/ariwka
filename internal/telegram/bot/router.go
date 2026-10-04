@@ -42,13 +42,6 @@ func (b telegram) handle(ctx context.Context, u update) error {
 		return nil
 	}
 
-	if b.messages[msg.Chat.ID] == 0 {
-		err := b.removeKeyboard(ctx, msg.Chat.ID)
-		if err != nil {
-			return err
-		}
-	}
-
 	var result json.RawMessage
 
 	_ = b.call(ctx, "deleteMessage", url.Values{
@@ -82,30 +75,6 @@ func (b telegram) handle(ctx context.Context, u update) error {
 	}
 
 	return b.action(ctx, msg.From.ID, msg.Chat.ID, b.messages[msg.Chat.ID], data)
-}
-
-func (b telegram) removeKeyboard(ctx context.Context, chat int64) error {
-	var message struct {
-		ID int64 `json:"message_id"`
-	}
-
-	err := b.call(ctx, "sendMessage", url.Values{
-		"chat_id":      {strconv.FormatInt(chat, 10)},
-		"text":         {"Открываю меню…"},
-		"reply_markup": {`{"remove_keyboard":true}`},
-	}, &message)
-	if err != nil {
-		return err
-	}
-
-	var result json.RawMessage
-
-	_ = b.call(ctx, "deleteMessage", url.Values{
-		"chat_id":    {strconv.FormatInt(chat, 10)},
-		"message_id": {strconv.FormatInt(message.ID, 10)},
-	}, &result)
-
-	return nil
 }
 
 func (b telegram) action(ctx context.Context, userID, chat, id int64, data string) error {
@@ -156,14 +125,5 @@ func (b telegram) action(ctx context.Context, userID, chat, id int64, data strin
 		return err
 	}
 
-	err = b.render(ctx, chat, id, view)
-	if err != nil {
-		return err
-	}
-
-	if view.Notice != "" {
-		return b.send(ctx, chat, view.Notice)
-	}
-
-	return nil
+	return b.render(ctx, chat, id, view)
 }
