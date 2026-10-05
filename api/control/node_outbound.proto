@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package control;
+
+option go_package = "vpn/gen/control;control";
+
+import "node/outbound.proto";
+
+service NodeOutboundService {
+  rpc List(ListNodeOutboundsRequest) returns (ListNodeOutboundsResponse);
+  rpc Create(CreateNodeOutboundRequest) returns (CreateNodeOutboundResponse);
+  rpc Delete(DeleteNodeOutboundRequest) returns (DeleteNodeOutboundResponse);
+  rpc Update(UpdateNodeOutboundRequest) returns (UpdateNodeOutboundResponse);
+}
+
+message ListNodeOutboundsRequest { string node_id = 1; }
+message ListNodeOutboundsResponse { repeated vpn.v1.Outbound outbounds = 1; }
+message CreateNodeOutboundRequest {
+  string node_id = 1;
+  vpn.v1.Outbound outbound = 2;
+}
+message CreateNodeOutboundResponse {}
+message DeleteNodeOutboundRequest {
+  string node_id = 1;
+  string tag = 2;
+}
+message DeleteNodeOutboundResponse {}
+message UpdateNodeOutboundRequest {
+  string node_id = 1;
+  string tag = 2;
+  repeated vpn.v1.OutboundOption options = 3;
+}
+message UpdateNodeOutboundResponse {}

@@ -22,6 +22,7 @@ type Control struct {
 	auth     api.AuthServiceClient
 	configs  api.ConfigServiceClient
 	nodes    api.NodeServiceClient
+	inbounds api.NodeInboundServiceClient
 	username string
 	password string
 }
@@ -53,9 +54,13 @@ func Open(address, username, password string) (Control, error) {
 	}
 
 	return Control{
-		conn: conn,
-		auth: api.NewAuthServiceClient(conn), configs: api.NewConfigServiceClient(conn),
-		nodes: api.NewNodeServiceClient(conn), username: username, password: password,
+		conn:     conn,
+		auth:     api.NewAuthServiceClient(conn),
+		configs:  api.NewConfigServiceClient(conn),
+		nodes:    api.NewNodeServiceClient(conn),
+		inbounds: api.NewNodeInboundServiceClient(conn),
+		username: username,
+		password: password,
 	}, nil
 }
 
@@ -107,7 +112,7 @@ func (u User) SubscriptionLink(ctx context.Context) (string, error) {
 }
 
 func (u User) Nodes(ctx context.Context) ([]Node, error) {
-	resp, err := u.control.nodes.GetNodes(u.context(ctx), &api.GetNodesRequest{})
+	resp, err := u.control.nodes.List(u.context(ctx), &api.ListNodesRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -121,13 +126,18 @@ func (u User) Nodes(ctx context.Context) ([]Node, error) {
 }
 
 func (u User) Inbounds(ctx context.Context, nodeID string) ([]Inbound, error) {
-	resp, err := u.control.nodes.GetNodeInbounds(u.context(ctx), &api.GetNodeInboundsRequest{NodeId: nodeID})
+	resp, err := u.control.inbounds.List(u.context(ctx), &api.ListNodeInboundsRequest{})
 	if err != nil {
 		return nil, err
 	}
 
 	inbounds := make([]Inbound, 0, len(resp.GetInbounds()))
-	for _, inbound := range resp.GetInbounds() {
+	for _, item := range resp.GetInbounds() {
+		if item.GetNodeId() != nodeID {
+			continue
+		}
+
+		inbound := item.GetInbound()
 		if inbound.GetNetwork() == common.InboundNetwork_INBOUND_NETWORK_INTERNAL {
 			continue
 		}

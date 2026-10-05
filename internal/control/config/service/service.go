@@ -28,6 +28,9 @@ type Repository interface {
 type Nodes interface {
 	Get(string) (*provider.Node, error)
 	List(context.Context) ([]nodemodel.Node, error)
+}
+
+type Inbounds interface {
 	Inbounds(context.Context, string) ([]nodemodel.Inbound, error)
 }
 
@@ -36,10 +39,11 @@ type Users interface {
 }
 
 type Service struct {
-	Repo  Repository
-	Nodes Nodes
-	Users Users
-	Mu    *sync.Mutex
+	Repo     Repository
+	Nodes    Nodes
+	Inbounds Inbounds
+	Users    Users
+	Mu       *sync.Mutex
 }
 
 func (s Service) Create(ctx context.Context, userID, nodeID, inbound string) (string, string, error) {
@@ -56,7 +60,7 @@ func (s Service) Create(ctx context.Context, userID, nodeID, inbound string) (st
 		return "", "", err
 	}
 
-	inbounds, err := s.Nodes.Inbounds(ctx, nodeID)
+	inbounds, err := s.Inbounds.Inbounds(ctx, nodeID)
 	if err != nil {
 		return "", "", err
 	}

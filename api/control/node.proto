@@ -4,26 +4,11 @@ package control;
 
 option go_package = "vpn/gen/control;control";
 
-import "vpn/common/common.proto";
-import "node/outbound.proto";
-import "node/route.proto";
-
 service NodeService {
-  rpc AddNode(AddNodeRequest) returns (Node);
-  rpc ModifyNode(ModifyNodeRequest) returns (Node);
-  rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
-  rpc GetNodes(GetNodesRequest) returns (GetNodesResponse);
-  rpc GetNodeInbounds(GetNodeInboundsRequest) returns (GetNodeInboundsResponse);
-  rpc AddNodeHysteria2Inbound(AddNodeHysteria2InboundRequest) returns (AddNodeHysteria2InboundResponse);
-  rpc AddNodeVlessInbound(AddNodeVlessInboundRequest) returns (AddNodeVlessInboundResponse);
-  rpc DeleteNodeInbound(DeleteNodeInboundRequest) returns (DeleteNodeInboundResponse);
-  rpc AddNodeRouteRule(AddNodeRouteRuleRequest) returns (AddNodeRouteRuleResponse);
-  rpc GetNodeRouteRules(GetNodeRouteRulesRequest) returns (GetNodeRouteRulesResponse);
-  rpc DeleteNodeRouteRule(DeleteNodeRouteRuleRequest) returns (DeleteNodeRouteRuleResponse);
-  rpc GetNodeOutbounds(GetNodeOutboundsRequest) returns (GetNodeOutboundsResponse);
-  rpc AddNodeOutbound(AddNodeOutboundRequest) returns (AddNodeOutboundResponse);
-  rpc DeleteNodeOutbound(DeleteNodeOutboundRequest) returns (DeleteNodeOutboundResponse);
-  rpc ModifyNodeOutbound(ModifyNodeOutboundRequest) returns (ModifyNodeOutboundResponse);
+  rpc List(ListNodesRequest) returns (ListNodesResponse);
+  rpc Create(CreateNodeRequest) returns (Node);
+  rpc Delete(DeleteNodeRequest) returns (DeleteNodeResponse);
+  rpc Update(UpdateNodeRequest) returns (Node);
 }
 
 message Node {
@@ -34,13 +19,13 @@ message Node {
   string country = 5;
 }
 
-message AddNodeRequest {
+message CreateNodeRequest {
   string name = 1;
   string address = 2;
   string description = 3;
 }
 
-message ModifyNodeRequest {
+message UpdateNodeRequest {
   string id = 1;
   repeated NodeOption options = 2;
 }
@@ -55,63 +40,5 @@ message NodeOption {
 
 message DeleteNodeRequest { string id = 1; }
 message DeleteNodeResponse {}
-message GetNodesRequest {}
-message GetNodesResponse { repeated Node nodes = 1; }
-
-message GetNodeInboundsRequest { string node_id = 1; }
-
-message GetNodeInboundsResponse { repeated vpn.common.Inbound inbounds = 1; }
-
-message AddNodeHysteria2InboundRequest {
-  string node_id = 1;
-  int32 port = 2;
-}
-message AddNodeVlessInboundRequest {
-  string node_id = 1;
-  int32 port = 2;
-  string server_name = 3;
-  vpn.common.VlessTransportOptions transport = 4;
-}
-message AddNodeHysteria2InboundResponse { vpn.common.Inbound inbound = 1; }
-message AddNodeVlessInboundResponse { vpn.common.Inbound inbound = 1; }
-
-message DeleteNodeInboundRequest {
-  string node_id = 1;
-  string tag = 2;
-}
-message DeleteNodeInboundResponse {}
-
-message AddNodeRouteRuleRequest {
-  string node_id = 1;
-  optional string user = 2;
-  optional string rule_set = 3;
-  vpn.v1.RouteAction action = 4;
-  string outbound = 5;
-}
-message AddNodeRouteRuleResponse {}
-message GetNodeRouteRulesRequest { string node_id = 1; }
-message GetNodeRouteRulesResponse { repeated vpn.v1.RouteRule rules = 1; }
-message DeleteNodeRouteRuleRequest {
-  string node_id = 1;
-  uint32 index = 2;
-}
-message DeleteNodeRouteRuleResponse {}
-
-message GetNodeOutboundsRequest { string node_id = 1; }
-message GetNodeOutboundsResponse { repeated vpn.v1.Outbound outbounds = 1; }
-message AddNodeOutboundRequest {
-  string node_id = 1;
-  vpn.v1.Outbound outbound = 2;
-}
-message AddNodeOutboundResponse {}
-message DeleteNodeOutboundRequest {
-  string node_id = 1;
-  string tag = 2;
-}
-message DeleteNodeOutboundResponse {}
-message ModifyNodeOutboundRequest {
-  string node_id = 1;
-  string tag = 2;
-  repeated vpn.v1.OutboundOption options = 3;
-}
-message ModifyNodeOutboundResponse {}
+message ListNodesRequest {}
+message ListNodesResponse { repeated Node nodes = 1; }

@@ -38,6 +38,15 @@ type Service struct {
 	Mu       *sync.Mutex
 }
 
+type InboundService struct{ Service }
+type RouteRuleService struct{ Service }
+type OutboundService struct{ Service }
+
+type NodeInbound struct {
+	NodeID  string
+	Inbound model.Inbound
+}
+
 func (s Service) Create(ctx context.Context, name, address, description string) (model.Node, error) {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
@@ -150,7 +159,29 @@ func (s Service) Get(id string) (*provider.Node, error) {
 	return s.Provider.Get(id)
 }
 
-func (s Service) Inbounds(ctx context.Context, nodeID string) ([]model.Inbound, error) {
+func (s InboundService) ListInbounds(ctx context.Context) ([]NodeInbound, error) {
+	nodes, err := s.Repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []NodeInbound
+
+	for _, node := range nodes {
+		inbounds, err := s.Inbounds(ctx, node.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, inbound := range inbounds {
+			result = append(result, NodeInbound{NodeID: node.ID, Inbound: inbound})
+		}
+	}
+
+	return result, nil
+}
+
+func (s InboundService) Inbounds(ctx context.Context, nodeID string) ([]model.Inbound, error) {
 	node, err := s.Get(nodeID)
 	if err != nil {
 		return nil, err
@@ -178,7 +209,7 @@ func (s Service) Inbounds(ctx context.Context, nodeID string) ([]model.Inbound, 
 	return inbounds, nil
 }
 
-func (s Service) RouteRules(ctx context.Context, nodeID string) ([]*api.RouteRule, error) {
+func (s RouteRuleService) RouteRules(ctx context.Context, nodeID string) ([]*api.RouteRule, error) {
 	node, err := s.Get(nodeID)
 	if err != nil {
 		return nil, err
@@ -187,7 +218,7 @@ func (s Service) RouteRules(ctx context.Context, nodeID string) ([]*api.RouteRul
 	return node.RouteRules(ctx)
 }
 
-func (s Service) DeleteRouteRule(ctx context.Context, nodeID string, index uint32) error {
+func (s RouteRuleService) DeleteRouteRule(ctx context.Context, nodeID string, index uint32) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -199,7 +230,7 @@ func (s Service) DeleteRouteRule(ctx context.Context, nodeID string, index uint3
 	return node.RemoveRouteRule(ctx, index)
 }
 
-func (s Service) AddRouteRule(ctx context.Context, nodeID string, rule model.RouteRule) error {
+func (s RouteRuleService) AddRouteRule(ctx context.Context, nodeID string, rule model.RouteRule) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -211,7 +242,7 @@ func (s Service) AddRouteRule(ctx context.Context, nodeID string, rule model.Rou
 	return node.AddRouteRule(ctx, rule)
 }
 
-func (s Service) Outbounds(ctx context.Context, nodeID string) ([]*api.Outbound, error) {
+func (s OutboundService) Outbounds(ctx context.Context, nodeID string) ([]*api.Outbound, error) {
 	node, err := s.Get(nodeID)
 	if err != nil {
 		return nil, err
@@ -220,7 +251,7 @@ func (s Service) Outbounds(ctx context.Context, nodeID string) ([]*api.Outbound,
 	return node.Outbounds(ctx)
 }
 
-func (s Service) AddOutbound(ctx context.Context, nodeID string, outbound *api.Outbound) error {
+func (s OutboundService) AddOutbound(ctx context.Context, nodeID string, outbound *api.Outbound) error {
 	if outbound == nil || strings.HasPrefix(outbound.GetTag(), meshPrefix) {
 		return errors.New("reserved outbound tag")
 	}
@@ -236,7 +267,7 @@ func (s Service) AddOutbound(ctx context.Context, nodeID string, outbound *api.O
 	return node.AddOutbound(ctx, outbound)
 }
 
-func (s Service) DeleteOutbound(ctx context.Context, nodeID, tag string) error {
+func (s OutboundService) DeleteOutbound(ctx context.Context, nodeID, tag string) error {
 	if strings.HasPrefix(tag, meshPrefix) {
 		return errors.New("reserved outbound tag")
 	}
@@ -252,7 +283,7 @@ func (s Service) DeleteOutbound(ctx context.Context, nodeID, tag string) error {
 	return node.RemoveOutbound(ctx, tag)
 }
 
-func (s Service) ModifyOutbound(ctx context.Context, nodeID, tag string, options []*api.OutboundOption) error {
+func (s OutboundService) ModifyOutbound(ctx context.Context, nodeID, tag string, options []*api.OutboundOption) error {
 	if strings.HasPrefix(tag, meshPrefix) {
 		return errors.New("reserved outbound tag")
 	}
@@ -268,7 +299,7 @@ func (s Service) ModifyOutbound(ctx context.Context, nodeID, tag string, options
 	return node.ModifyOutbound(ctx, tag, options)
 }
 
-func (s Service) AddHysteria2Inbound(ctx context.Context, nodeID string, port int32) (model.Inbound, error) {
+func (s InboundService) AddHysteria2Inbound(ctx context.Context, nodeID string, port int32) (model.Inbound, error) {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -293,7 +324,7 @@ func (s Service) AddHysteria2Inbound(ctx context.Context, nodeID string, port in
 	return node.AddHysteria2Inbound(ctx, config.Tag, port)
 }
 
-func (s Service) AddVlessInbound(ctx context.Context, nodeID string, port int32, serverName string, transport model.VlessTransportOptions) (model.Inbound, error) {
+func (s InboundService) AddVlessInbound(ctx context.Context, nodeID string, port int32, serverName string, transport model.VlessTransportOptions) (model.Inbound, error) {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -343,7 +374,7 @@ func (s Service) AddVlessInbound(ctx context.Context, nodeID string, port int32,
 	return node.AddVlessInbound(ctx, config)
 }
 
-func (s Service) DeleteInbound(ctx context.Context, nodeID, tag string) error {
+func (s InboundService) DeleteInbound(ctx context.Context, nodeID, tag string) error {
 	if strings.HasPrefix(tag, meshPrefix) {
 		return errors.New("reserved inbound tag")
 	}
@@ -393,7 +424,7 @@ func (s Service) DeleteInbound(ctx context.Context, nodeID, tag string) error {
 	return s.Repo.DeleteInbound(ctx, nodeID, tag)
 }
 
-func (s Service) SyncInbounds(ctx context.Context) error {
+func (s InboundService) SyncInbounds(ctx context.Context) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -414,7 +445,7 @@ func (s Service) SyncInbounds(ctx context.Context) error {
 	return errors.Join(failures...)
 }
 
-func (s Service) inboundNode(nodeID string, port int32) (*provider.Node, error) {
+func (s InboundService) inboundNode(nodeID string, port int32) (*provider.Node, error) {
 	if port < 1 || port > 65535 {
 		return nil, errors.New("invalid inbound port")
 	}
@@ -422,7 +453,7 @@ func (s Service) inboundNode(nodeID string, port int32) (*provider.Node, error) 
 	return s.Get(nodeID)
 }
 
-func (s Service) syncNode(ctx context.Context, nodeID string) error {
+func (s InboundService) syncNode(ctx context.Context, nodeID string) error {
 	node, err := s.Get(nodeID)
 	if err != nil {
 		return err

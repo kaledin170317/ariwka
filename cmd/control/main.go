@@ -60,11 +60,15 @@ func main() {
 	defer nodeProvider.Close()
 
 	nodes.Provider = nodeProvider
+	inbounds := nodeservice.InboundService{Service: nodes}
+	routeRules := nodeservice.RouteRuleService{Service: nodes}
+	outbounds := nodeservice.OutboundService{Service: nodes}
 	configs := configservice.Service{
-		Repo:  configrepo.Postgres{DB: db},
-		Nodes: nodes,
-		Users: users,
-		Mu:    stateMu,
+		Repo:     configrepo.Postgres{DB: db},
+		Nodes:    nodes,
+		Inbounds: inbounds,
+		Users:    users,
+		Mu:       stateMu,
 	}
 	setsDB := rulesetrepo.Postgres{DB: db}
 	sets := rulesetservice.Service{Repo: setsDB, Nodes: nodes, Mu: stateMu}
@@ -73,7 +77,7 @@ func main() {
 	go func() {
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-			inboundErr := nodes.SyncInbounds(ctx)
+			inboundErr := inbounds.SyncInbounds(ctx)
 			meshErr := nodes.SyncMesh(ctx)
 			setErr := sets.Sync(ctx)
 			routeErr := routes.Sync(ctx)
@@ -100,6 +104,9 @@ func main() {
 	api.RegisterUserServiceServer(grpcServer, userhandlers.Users{Service: users})
 	api.RegisterAuthServiceServer(grpcServer, authhandlers.Auth{Service: login})
 	api.RegisterNodeServiceServer(grpcServer, nodehandlers.Nodes{Service: nodes})
+	api.RegisterNodeInboundServiceServer(grpcServer, nodehandlers.Inbounds{Service: inbounds})
+	api.RegisterNodeRouteRuleServiceServer(grpcServer, nodehandlers.RouteRules{Service: routeRules})
+	api.RegisterNodeOutboundServiceServer(grpcServer, nodehandlers.Outbounds{Service: outbounds})
 	api.RegisterConfigServiceServer(grpcServer, confighandlers.Configs{Service: configs})
 	api.RegisterRoutingServiceServer(grpcServer, routinghandlers.Handler{Service: routes})
 	api.RegisterRuleSetServiceServer(grpcServer, rulesethandlers.Handler{Service: sets})
