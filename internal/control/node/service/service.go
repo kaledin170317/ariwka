@@ -178,51 +178,6 @@ func (s Service) Inbounds(ctx context.Context, nodeID string) ([]model.Inbound, 
 	return inbounds, nil
 }
 
-func (s Service) RuleSets(ctx context.Context, nodeID string) ([]*api.RuleSet, error) {
-	node, err := s.Get(nodeID)
-	if err != nil {
-		return nil, err
-	}
-
-	return node.RuleSets(ctx)
-}
-
-func (s Service) AddRuleSet(ctx context.Context, nodeID, name, url string) error {
-	s.Mu.Lock()
-	defer s.Mu.Unlock()
-
-	node, err := s.Get(nodeID)
-	if err != nil {
-		return err
-	}
-
-	return node.AddRuleSet(ctx, name, url)
-}
-
-func (s Service) RemoveRuleSet(ctx context.Context, nodeID, name string) error {
-	s.Mu.Lock()
-	defer s.Mu.Unlock()
-
-	node, err := s.Get(nodeID)
-	if err != nil {
-		return err
-	}
-
-	return node.RemoveRuleSet(ctx, name)
-}
-
-func (s Service) ModifyRuleSet(ctx context.Context, nodeID, name, url string) error {
-	s.Mu.Lock()
-	defer s.Mu.Unlock()
-
-	node, err := s.Get(nodeID)
-	if err != nil {
-		return err
-	}
-
-	return node.ModifyRuleSet(ctx, name, url)
-}
-
 func (s Service) RouteRules(ctx context.Context, nodeID string) ([]*api.RouteRule, error) {
 	node, err := s.Get(nodeID)
 	if err != nil {
@@ -232,7 +187,7 @@ func (s Service) RouteRules(ctx context.Context, nodeID string) ([]*api.RouteRul
 	return node.RouteRules(ctx)
 }
 
-func (s Service) RemoveRouteRule(ctx context.Context, nodeID string, index uint32) error {
+func (s Service) DeleteRouteRule(ctx context.Context, nodeID string, index uint32) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -281,7 +236,7 @@ func (s Service) AddOutbound(ctx context.Context, nodeID string, outbound *api.O
 	return node.AddOutbound(ctx, outbound)
 }
 
-func (s Service) RemoveOutbound(ctx context.Context, nodeID, tag string) error {
+func (s Service) DeleteOutbound(ctx context.Context, nodeID, tag string) error {
 	if strings.HasPrefix(tag, meshPrefix) {
 		return errors.New("reserved outbound tag")
 	}

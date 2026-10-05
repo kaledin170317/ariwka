@@ -30,6 +30,7 @@
         "action": "hijack-dns"
       }
     ],
-    "final": "direct"
+    "final": "direct",
+    "default_domain_resolver": "cloudflare"
   }
 }

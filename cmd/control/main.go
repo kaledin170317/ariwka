@@ -24,6 +24,12 @@ import (
 	"vpn/internal/control/node/provider"
 	noderepo "vpn/internal/control/node/repo"
 	nodeservice "vpn/internal/control/node/service"
+	routinghandlers "vpn/internal/control/routing/handlers"
+	routingrepo "vpn/internal/control/routing/repo"
+	routingservice "vpn/internal/control/routing/service"
+	rulesethandlers "vpn/internal/control/ruleset/handlers"
+	rulesetrepo "vpn/internal/control/ruleset/repo"
+	rulesetservice "vpn/internal/control/ruleset/service"
 	"vpn/internal/control/subscription"
 	userhandlers "vpn/internal/control/user/handlers"
 	userrepo "vpn/internal/control/user/repo"
@@ -60,17 +66,22 @@ func main() {
 		Users: users,
 		Mu:    stateMu,
 	}
+	setsDB := rulesetrepo.Postgres{DB: db}
+	sets := rulesetservice.Service{Repo: setsDB, Nodes: nodes, Mu: stateMu}
+	routes := routingservice.Service{Repo: routingrepo.Postgres{DB: db}, Nodes: nodes, Sets: setsDB, Mu: stateMu}
 
 	go func() {
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			inboundErr := nodes.SyncInbounds(ctx)
 			meshErr := nodes.SyncMesh(ctx)
+			setErr := sets.Sync(ctx)
+			routeErr := routes.Sync(ctx)
 			userErr := configs.SyncUsers(ctx)
 
 			cancel()
 
-			syncErr := errors.Join(inboundErr, meshErr, userErr)
+			syncErr := errors.Join(inboundErr, meshErr, setErr, routeErr, userErr)
 			if syncErr != nil {
 				log.Printf("node sync: %v", syncErr)
 			}
@@ -90,6 +101,8 @@ func main() {
 	api.RegisterAuthServiceServer(grpcServer, authhandlers.Auth{Service: login})
 	api.RegisterNodeServiceServer(grpcServer, nodehandlers.Nodes{Service: nodes})
 	api.RegisterConfigServiceServer(grpcServer, confighandlers.Configs{Service: configs})
+	api.RegisterRoutingServiceServer(grpcServer, routinghandlers.Handler{Service: routes})
+	api.RegisterRuleSetServiceServer(grpcServer, rulesethandlers.Handler{Service: sets})
 	reflection.Register(grpcServer)
 
 	go func() {

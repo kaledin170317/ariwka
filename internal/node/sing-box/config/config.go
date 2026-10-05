@@ -1,5 +1,7 @@
 package config
 
+import "encoding/json/jsontext"
+
 //go:generate go tool go-enum --marshal --output-suffix=.enum.gen
 
 type Config struct {
@@ -23,18 +25,37 @@ type log struct {
 // DNS section
 
 type dns struct {
-	Servers []server `json:"servers,omitempty"`
-	Final   string   `json:"final,omitempty"`
+	Servers []server                  `json:"servers,omitempty"`
+	Rules   []dnsRule                 `json:"rules,omitempty"`
+	Final   string                    `json:"final,omitempty"`
+	Extra   map[string]jsontext.Value `json:",embed"`
 }
 
 // ENUM(udp, tcp, tls, https)
 type DNSServerType string
 
 type server struct {
-	Type       DNSServerType `json:"type,omitzero"`
-	Tag        string        `json:"tag,omitzero"`
-	Server     string        `json:"server,omitzero"`
-	ServerPort uint16        `json:"server_port,omitzero"`
+	Type       DNSServerType             `json:"type,omitzero"`
+	Tag        string                    `json:"tag,omitzero"`
+	Server     string                    `json:"server,omitzero"`
+	ServerPort uint16                    `json:"server_port,omitzero"`
+	Headers    map[string]string         `json:"headers,omitempty"`
+	TLS        *serverTLS                `json:"tls,omitempty"`
+	Detour     string                    `json:"detour,omitempty"`
+	Extra      map[string]jsontext.Value `json:",embed"`
+}
+
+type serverTLS struct {
+	Enabled    bool     `json:"enabled"`
+	ServerName string   `json:"server_name"`
+	ALPN       []string `json:"alpn"`
+}
+
+type dnsRule struct {
+	RuleSet []string                  `json:"rule_set,omitempty"`
+	Action  string                    `json:"action,omitempty"`
+	Server  string                    `json:"server,omitempty"`
+	Extra   map[string]jsontext.Value `json:",embed"`
 }
 
 // Outbound section
@@ -75,9 +96,10 @@ type outboundReality struct {
 // Route section
 
 type route struct {
-	Rules   []routeRule `json:"rules,omitempty"`
-	RuleSet []ruleSet   `json:"rule_set,omitempty"`
-	Final   string      `json:"final,omitempty"`
+	Rules                 []routeRule `json:"rules,omitempty"`
+	RuleSet               []ruleSet   `json:"rule_set,omitempty"`
+	Final                 string      `json:"final,omitempty"`
+	DefaultDomainResolver string      `json:"default_domain_resolver,omitempty"`
 }
 
 // ENUM(inline, local, remote)
@@ -87,15 +109,18 @@ type RuleSetType string
 type RuleSetFormat string
 
 type ruleSet struct {
-	Type   RuleSetType   `json:"type"`
-	Tag    string        `json:"tag"`
-	Format RuleSetFormat `json:"format,omitempty"`
-	URL    string        `json:"url,omitempty"`
+	Type           RuleSetType   `json:"type"`
+	Tag            string        `json:"tag"`
+	Format         RuleSetFormat `json:"format,omitempty"`
+	URL            string        `json:"url,omitempty"`
+	UpdateInterval string        `json:"update_interval,omitempty"`
 }
 
 type routeRule struct {
+	Inbound  []string    `json:"inbound,omitempty"`
 	AuthUser []string    `json:"auth_user,omitempty"`
 	RuleSet  []string    `json:"rule_set,omitempty"`
+	IPCIDR   []string    `json:"ip_cidr,omitempty"`
 	Port     uint16      `json:"port,omitzero"`
 	Action   RouteAction `json:"action"`
 	Outbound string      `json:"outbound,omitempty"`

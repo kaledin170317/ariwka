@@ -13,8 +13,22 @@ type RouteHandler struct {
 	Service *service.SingBoxService
 }
 
+func (c *RouteHandler) SyncDNSRoutes(ctx context.Context, in *api.SyncDNSRoutesRequest) (*api.SyncDNSRoutesResponse, error) {
+	routes := make([]config.DNSRoute, 0, len(in.GetRoutes()))
+	for _, route := range in.GetRoutes() {
+		routes = append(routes, config.DNSRoute{
+			RuleSet:  route.GetRuleSet(),
+			Outbound: route.GetOutbound(),
+		})
+	}
+
+	err := c.Service.SyncDNSRoutes(routes, in.GetManagedRuleSets())
+
+	return &api.SyncDNSRoutesResponse{}, err
+}
+
 func (c *RouteHandler) AddRuleSet(ctx context.Context, in *api.AddRuleSetRequest) (*api.AddRuleSetResponse, error) {
-	err := c.Service.AddRuleSet(in.GetName(), in.GetUrl())
+	err := c.Service.AddRuleSet(in.GetName(), in.GetUrl(), in.GetFormat(), in.GetUpdateIntervalSeconds())
 	return &api.AddRuleSetResponse{}, err
 }
 
@@ -23,7 +37,12 @@ func (c *RouteHandler) GetRuleSets(ctx context.Context, in *api.GetRuleSetsReque
 
 	resp := &api.GetRuleSetsResponse{RuleSets: make([]*api.RuleSet, 0, len(ruleSets))}
 	for _, rule := range ruleSets {
-		resp.RuleSets = append(resp.RuleSets, &api.RuleSet{Name: rule.Name, Url: rule.URL})
+		resp.RuleSets = append(resp.RuleSets, &api.RuleSet{
+			Name:                  rule.Name,
+			Url:                   rule.URL,
+			Format:                rule.Format,
+			UpdateIntervalSeconds: rule.UpdateIntervalSeconds,
+		})
 	}
 
 	return resp, nil
@@ -35,7 +54,7 @@ func (c *RouteHandler) RemoveRuleSet(ctx context.Context, in *api.RemoveRuleSetR
 }
 
 func (c *RouteHandler) ModifyRuleSet(ctx context.Context, in *api.ModifyRuleSetRequest) (*api.ModifyRuleSetResponse, error) {
-	err := c.Service.ModifyRuleSet(in.GetName(), in.GetUrl())
+	err := c.Service.ModifyRuleSet(in.GetName(), in.GetUrl(), in.GetFormat(), in.GetUpdateIntervalSeconds())
 	return &api.ModifyRuleSetResponse{}, err
 }
 

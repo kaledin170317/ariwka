@@ -166,8 +166,11 @@ func (n *Node) ModifyVlessUser(ctx context.Context, inboundTag, tag, uuid string
 	return n.ModifyUser(ctx, inboundTag, tag, &api.UserOption{Value: &api.UserOption_Uuid{Uuid: uuid}})
 }
 
-func (n *Node) AddRuleSet(ctx context.Context, name, url string) error {
-	_, err := n.routes.AddRuleSet(ctx, &api.AddRuleSetRequest{Name: name, Url: url})
+func (n *Node) AddRuleSetConfig(ctx context.Context, name, url, format string, interval uint32) error {
+	_, err := n.routes.AddRuleSet(ctx, &api.AddRuleSetRequest{
+		Name: name, Url: url, Format: format, UpdateIntervalSeconds: interval,
+	})
+
 	return err
 }
 
@@ -185,8 +188,11 @@ func (n *Node) RemoveRuleSet(ctx context.Context, name string) error {
 	return err
 }
 
-func (n *Node) ModifyRuleSet(ctx context.Context, name, url string) error {
-	_, err := n.routes.ModifyRuleSet(ctx, &api.ModifyRuleSetRequest{Name: name, Url: url})
+func (n *Node) ModifyRuleSetConfig(ctx context.Context, name, url, format string, interval uint32) error {
+	_, err := n.routes.ModifyRuleSet(ctx, &api.ModifyRuleSetRequest{
+		Name: name, Url: url, Format: format, UpdateIntervalSeconds: interval,
+	})
+
 	return err
 }
 
@@ -197,6 +203,15 @@ func (n *Node) RouteRules(ctx context.Context) ([]*api.RouteRule, error) {
 	}
 
 	return resp.GetRules(), nil
+}
+
+func (n *Node) SyncDNSRoutes(ctx context.Context, routes []*api.DNSRoute, managedRuleSets []string) error {
+	_, err := n.routes.SyncDNSRoutes(ctx, &api.SyncDNSRoutesRequest{
+		Routes:          routes,
+		ManagedRuleSets: managedRuleSets,
+	})
+
+	return err
 }
 
 func (n *Node) RemoveRouteRule(ctx context.Context, index uint32) error {

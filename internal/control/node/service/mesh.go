@@ -21,7 +21,7 @@ import (
 const (
 	meshPrefix     = "mesh:"
 	meshPort       = 6767
-	meshServerName = "microsoft.com"
+	meshServerName = "www.cloudflare.com"
 )
 
 // SyncMesh maintains one private connection per node and an outbound to every other node.

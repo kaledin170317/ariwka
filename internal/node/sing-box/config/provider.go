@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"slices"
 	"sort"
+	"time"
 )
 
 const (
@@ -57,9 +58,10 @@ func (c *Config) Apply() error {
 	return nil
 }
 
-func (c *Config) AddRuleSet(name, url string) error {
-	if name == "" || url == "" {
-		return errors.New("rule set name and URL required")
+func (c *Config) AddRuleSet(name, url, format string, interval uint32) error {
+	err := validateRuleSet(name, url, format)
+	if err != nil {
+		return err
 	}
 
 	for _, item := range c.Route.RuleSet {
@@ -69,11 +71,13 @@ func (c *Config) AddRuleSet(name, url string) error {
 	}
 
 	c.Route.RuleSet = append(c.Route.RuleSet, ruleSet{
-		Type:   RuleSetTypeRemote,
-		Tag:    name,
-		Format: RuleSetFormatBinary,
-		URL:    url,
+		Type:           RuleSetTypeRemote,
+		Tag:            name,
+		Format:         ruleSetFormat(format),
+		URL:            url,
+		UpdateInterval: ruleSetInterval(interval),
 	})
+	c.ensureDomainResolver()
 
 	return c.Apply()
 }
@@ -81,7 +85,17 @@ func (c *Config) AddRuleSet(name, url string) error {
 func (c *Config) GetRuleSets() []RuleSet {
 	result := make([]RuleSet, 0, len(c.Route.RuleSet))
 	for _, item := range c.Route.RuleSet {
-		result = append(result, RuleSet{Name: item.Tag, URL: item.URL})
+		duration, err := time.ParseDuration(item.UpdateInterval)
+		if err != nil {
+			duration = 0
+		}
+
+		result = append(result, RuleSet{
+			Name:                  item.Tag,
+			URL:                   item.URL,
+			Format:                string(item.Format),
+			UpdateIntervalSeconds: uint32(duration / time.Second),
+		})
 	}
 
 	return result
@@ -105,9 +119,10 @@ func (c *Config) RemoveRuleSet(name string) error {
 	return fmt.Errorf("rule set %q not found", name)
 }
 
-func (c *Config) ModifyRuleSet(name, url string) error {
-	if url == "" {
-		return errors.New("rule set URL required")
+func (c *Config) ModifyRuleSet(name, url, format string, interval uint32) error {
+	err := validateRuleSet(name, url, format)
+	if err != nil {
+		return err
 	}
 
 	for i := range c.Route.RuleSet {
@@ -117,6 +132,9 @@ func (c *Config) ModifyRuleSet(name, url string) error {
 			}
 
 			c.Route.RuleSet[i].URL = url
+			c.Route.RuleSet[i].Format = ruleSetFormat(format)
+			c.Route.RuleSet[i].UpdateInterval = ruleSetInterval(interval)
+			c.ensureDomainResolver()
 
 			return c.Apply()
 		}
@@ -126,8 +144,46 @@ func (c *Config) ModifyRuleSet(name, url string) error {
 }
 
 type RuleSet struct {
-	Name string
-	URL  string
+	Name                  string
+	URL                   string
+	Format                string
+	UpdateIntervalSeconds uint32
+}
+
+func validateRuleSet(name, url, format string) error {
+	if name == "" || url == "" {
+		return errors.New("rule set name and URL required")
+	}
+
+	if format != "" && format != "binary" && format != "source" {
+		return errors.New("invalid rule set format")
+	}
+
+	return nil
+}
+
+func ruleSetFormat(format string) RuleSetFormat {
+	if format == "source" {
+		return RuleSetFormatSource
+	}
+
+	return RuleSetFormatBinary
+}
+
+func ruleSetInterval(seconds uint32) string {
+	if seconds == 0 {
+		return ""
+	}
+
+	if seconds%3600 == 0 {
+		return fmt.Sprintf("%dh", seconds/3600)
+	}
+
+	if seconds%60 == 0 {
+		return fmt.Sprintf("%dm", seconds/60)
+	}
+
+	return fmt.Sprintf("%ds", seconds)
 }
 
 type RouteRule struct {
@@ -206,7 +262,7 @@ func (c *Config) AddRoute(user, rule *string, action RouteAction, outboundTag st
 		r := &c.Route.Rules[i]
 
 		if user == nil && rule == nil {
-			if len(r.AuthUser) == 0 && len(r.RuleSet) == 0 && r.Action == action && r.Outbound == outboundTag {
+			if len(r.Inbound) == 0 && r.Port == 0 && len(r.IPCIDR) == 0 && len(r.AuthUser) == 0 && len(r.RuleSet) == 0 && r.Action == action && r.Outbound == outboundTag {
 				return nil
 			}
 		} else if rule != nil && len(r.RuleSet) == 1 && r.RuleSet[0] == *rule && r.Action == action && r.Outbound == outboundTag {
@@ -222,7 +278,9 @@ func (c *Config) AddRoute(user, rule *string, action RouteAction, outboundTag st
 				return c.Apply()
 			}
 
-			return nil
+			if len(r.AuthUser) == 0 {
+				return nil
+			}
 		}
 	}
 
@@ -281,14 +339,24 @@ func (c *Config) apply() error {
 	return nil
 }
 
+func (c *Config) ensureDomainResolver() {
+	if c.Route.DefaultDomainResolver == "" {
+		c.Route.DefaultDomainResolver = c.DNS.Final
+	}
+}
+
 func (c *Config) sortRoutes() {
 	sort.SliceStable(c.Route.Rules, func(i, j int) bool {
-		return routePriority(c.Route.Rules[i].Action) < routePriority(c.Route.Rules[j].Action)
+		return routePriority(c.Route.Rules[i]) < routePriority(c.Route.Rules[j])
 	})
 }
 
-func routePriority(action RouteAction) int {
-	switch action {
+func routePriority(rule routeRule) int {
+	if len(rule.Inbound) > 0 && (rule.Port == 53 || rule.Port == 443) && rule.Action == RouteActionRoute && rule.Outbound == "direct" {
+		return -1
+	}
+
+	switch rule.Action {
 	case RouteActionHijackDns:
 		return 0
 	case RouteActionSniff:
@@ -296,7 +364,11 @@ func routePriority(action RouteAction) int {
 	case RouteActionReject:
 		return 2
 	case RouteActionRoute:
-		return 3
+		if len(rule.RuleSet) > 0 {
+			return 3
+		}
+
+		return 4
 	default:
 		return 100
 	}

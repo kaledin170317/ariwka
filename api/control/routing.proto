@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package control;
+
+option go_package = "vpn/gen/control;control";
+
+service RoutingService {
+  rpc List(ListRoutePoliciesRequest) returns (ListRoutePoliciesResponse);
+  rpc Create(CreateRoutePolicyRequest) returns (CreateRoutePolicyResponse);
+  rpc Delete(DeleteRoutePolicyRequest) returns (DeleteRoutePolicyResponse);
+  rpc Update(UpdateRoutePolicyRequest) returns (UpdateRoutePolicyResponse);
+}
+
+message NodeFilter {
+  string country = 1;
+  string not_country = 2;
+}
+
+message RoutePolicy {
+  string tag = 1;
+  NodeFilter source = 5;
+  NodeFilter target = 6;
+  string rule_set = 7;
+}
+
+message CreateRoutePolicyRequest { RoutePolicy policy = 1; }
+message CreateRoutePolicyResponse {}
+message DeleteRoutePolicyRequest { string tag = 1; }
+message DeleteRoutePolicyResponse {}
+message UpdateRoutePolicyRequest { RoutePolicy policy = 1; }
+message UpdateRoutePolicyResponse {}
+message ListRoutePoliciesRequest {}
+message ListRoutePoliciesResponse { repeated RoutePolicy policies = 1; }

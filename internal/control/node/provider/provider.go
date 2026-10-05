@@ -54,7 +54,7 @@ func (p *Provider) Add(node model.Node) error {
 	conn, err := grpc.NewClient(
 		node.Address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(interceptors.Timeout(5*time.Second)),
+		grpc.WithUnaryInterceptor(interceptors.Timeout(30*time.Second)),
 	)
 	if err != nil {
 		return err

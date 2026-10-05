@@ -27,7 +27,7 @@ func (s *SingBoxService) Sync() error {
 	return s.cfg.Sync()
 }
 
-func (s *SingBoxService) AddRuleSet(name, url string) error {
+func (s *SingBoxService) AddRuleSet(name, url, format string, interval uint32) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -35,7 +35,7 @@ func (s *SingBoxService) AddRuleSet(name, url string) error {
 		url = fmt.Sprintf("https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-%s.srs", name)
 	}
 
-	return s.cfg.AddRuleSet(name, url)
+	return s.cfg.AddRuleSet(name, url, format, interval)
 }
 
 func (s *SingBoxService) GetRuleSets() []config.RuleSet {
@@ -45,6 +45,13 @@ func (s *SingBoxService) GetRuleSets() []config.RuleSet {
 	return s.cfg.GetRuleSets()
 }
 
+func (s *SingBoxService) SyncDNSRoutes(routes []config.DNSRoute, managedRuleSets []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.cfg.SyncDNSRoutes(routes, managedRuleSets)
+}
+
 func (s *SingBoxService) RemoveRuleSet(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -52,11 +59,11 @@ func (s *SingBoxService) RemoveRuleSet(name string) error {
 	return s.cfg.RemoveRuleSet(name)
 }
 
-func (s *SingBoxService) ModifyRuleSet(name, url string) error {
+func (s *SingBoxService) ModifyRuleSet(name, url, format string, interval uint32) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.cfg.ModifyRuleSet(name, url)
+	return s.cfg.ModifyRuleSet(name, url, format, interval)
 }
 
 func (s *SingBoxService) GetRouteRules() []config.RouteRule {

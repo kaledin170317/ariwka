@@ -17,16 +17,12 @@ service NodeService {
   rpc AddNodeHysteria2Inbound(AddNodeHysteria2InboundRequest) returns (AddNodeHysteria2InboundResponse);
   rpc AddNodeVlessInbound(AddNodeVlessInboundRequest) returns (AddNodeVlessInboundResponse);
   rpc DeleteNodeInbound(DeleteNodeInboundRequest) returns (DeleteNodeInboundResponse);
-  rpc GetNodeRuleSets(GetNodeRuleSetsRequest) returns (GetNodeRuleSetsResponse);
-  rpc AddNodeRuleSet(AddNodeRuleSetRequest) returns (AddNodeRuleSetResponse);
-  rpc RemoveNodeRuleSet(RemoveNodeRuleSetRequest) returns (RemoveNodeRuleSetResponse);
-  rpc ModifyNodeRuleSet(ModifyNodeRuleSetRequest) returns (ModifyNodeRuleSetResponse);
   rpc AddNodeRouteRule(AddNodeRouteRuleRequest) returns (AddNodeRouteRuleResponse);
   rpc GetNodeRouteRules(GetNodeRouteRulesRequest) returns (GetNodeRouteRulesResponse);
-  rpc RemoveNodeRouteRule(RemoveNodeRouteRuleRequest) returns (RemoveNodeRouteRuleResponse);
+  rpc DeleteNodeRouteRule(DeleteNodeRouteRuleRequest) returns (DeleteNodeRouteRuleResponse);
   rpc GetNodeOutbounds(GetNodeOutboundsRequest) returns (GetNodeOutboundsResponse);
   rpc AddNodeOutbound(AddNodeOutboundRequest) returns (AddNodeOutboundResponse);
-  rpc RemoveNodeOutbound(RemoveNodeOutboundRequest) returns (RemoveNodeOutboundResponse);
+  rpc DeleteNodeOutbound(DeleteNodeOutboundRequest) returns (DeleteNodeOutboundResponse);
   rpc ModifyNodeOutbound(ModifyNodeOutboundRequest) returns (ModifyNodeOutboundResponse);
 }
 
@@ -85,25 +81,6 @@ message DeleteNodeInboundRequest {
 }
 message DeleteNodeInboundResponse {}
 
-message GetNodeRuleSetsRequest { string node_id = 1; }
-message GetNodeRuleSetsResponse { repeated vpn.v1.RuleSet rule_sets = 1; }
-message AddNodeRuleSetRequest {
-  string node_id = 1;
-  string name = 2;
-  string url = 3;
-}
-message AddNodeRuleSetResponse {}
-message RemoveNodeRuleSetRequest {
-  string node_id = 1;
-  string name = 2;
-}
-message RemoveNodeRuleSetResponse {}
-message ModifyNodeRuleSetRequest {
-  string node_id = 1;
-  string name = 2;
-  string url = 3;
-}
-message ModifyNodeRuleSetResponse {}
 message AddNodeRouteRuleRequest {
   string node_id = 1;
   optional string user = 2;
@@ -114,11 +91,11 @@ message AddNodeRouteRuleRequest {
 message AddNodeRouteRuleResponse {}
 message GetNodeRouteRulesRequest { string node_id = 1; }
 message GetNodeRouteRulesResponse { repeated vpn.v1.RouteRule rules = 1; }
-message RemoveNodeRouteRuleRequest {
+message DeleteNodeRouteRuleRequest {
   string node_id = 1;
   uint32 index = 2;
 }
-message RemoveNodeRouteRuleResponse {}
+message DeleteNodeRouteRuleResponse {}
 
 message GetNodeOutboundsRequest { string node_id = 1; }
 message GetNodeOutboundsResponse { repeated vpn.v1.Outbound outbounds = 1; }
@@ -127,11 +104,11 @@ message AddNodeOutboundRequest {
   vpn.v1.Outbound outbound = 2;
 }
 message AddNodeOutboundResponse {}
-message RemoveNodeOutboundRequest {
+message DeleteNodeOutboundRequest {
   string node_id = 1;
   string tag = 2;
 }
-message RemoveNodeOutboundResponse {}
+message DeleteNodeOutboundResponse {}
 message ModifyNodeOutboundRequest {
   string node_id = 1;
   string tag = 2;
