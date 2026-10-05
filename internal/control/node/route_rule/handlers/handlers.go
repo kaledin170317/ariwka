@@ -5,7 +5,7 @@ import (
 
 	api "vpn/gen/control"
 	"vpn/internal/control/node/model"
-	"vpn/internal/control/node/service"
+	"vpn/internal/control/node/route_rule/service"
 )
 
 type RouteRules struct {

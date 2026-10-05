@@ -154,7 +154,7 @@ func (s Service) SyncMesh(ctx context.Context) error {
 }
 
 func (s Service) meshConfig(ctx context.Context, nodeID string) (model.InboundConfig, error) {
-	configs, err := s.Repo.ListInbounds(ctx, nodeID)
+	configs, err := s.Inbounds.ListInbounds(ctx, nodeID)
 	if err != nil {
 		return model.InboundConfig{}, err
 	}
@@ -176,7 +176,7 @@ func (s Service) meshInbound(ctx context.Context, nodeID string) (model.Inbound,
 
 	config, err := s.meshConfig(ctx, nodeID)
 	if err != nil {
-		configs, listErr := s.Repo.ListInbounds(ctx, nodeID)
+		configs, listErr := s.Inbounds.ListInbounds(ctx, nodeID)
 		if listErr != nil {
 			return model.Inbound{}, listErr
 		}
@@ -215,7 +215,7 @@ func (s Service) meshInbound(ctx context.Context, nodeID string) (model.Inbound,
 			InternalUUID: uuid.NewString(),
 		}
 
-		err = s.Repo.CreateInbound(ctx, config)
+		err = s.Inbounds.CreateInbound(ctx, config)
 		if err != nil {
 			return model.Inbound{}, err
 		}

@@ -21,8 +21,17 @@ import (
 	configrepo "vpn/internal/control/config/repo"
 	configservice "vpn/internal/control/config/service"
 	nodehandlers "vpn/internal/control/node/handlers"
+	inboundhandlers "vpn/internal/control/node/inbound/handlers"
+	inboundrepo "vpn/internal/control/node/inbound/repo"
+	inboundservice "vpn/internal/control/node/inbound/service"
+	outboundhandlers "vpn/internal/control/node/outbound/handlers"
+	outboundrepo "vpn/internal/control/node/outbound/repo"
+	outboundservice "vpn/internal/control/node/outbound/service"
 	"vpn/internal/control/node/provider"
 	noderepo "vpn/internal/control/node/repo"
+	routerulehandlers "vpn/internal/control/node/route_rule/handlers"
+	routerulerepo "vpn/internal/control/node/route_rule/repo"
+	routeruleservice "vpn/internal/control/node/route_rule/service"
 	nodeservice "vpn/internal/control/node/service"
 	routinghandlers "vpn/internal/control/routing/handlers"
 	routingrepo "vpn/internal/control/routing/repo"
@@ -51,7 +60,9 @@ func main() {
 	usersDB := userrepo.Postgres{DB: db}
 	users := userservice.Service{Repo: usersDB}
 	stateMu := &sync.Mutex{}
-	nodes := nodeservice.Service{Repo: noderepo.Postgres{DB: db}, Mu: stateMu}
+	nodesDB := noderepo.Postgres{DB: db}
+	inboundsDB := inboundrepo.Postgres{DB: db}
+	nodes := nodeservice.Service{Repo: nodesDB, Inbounds: inboundsDB, Mu: stateMu}
 
 	nodeProvider, err := provider.New(context.Background(), nodes.Repo)
 	if err != nil {
@@ -60,9 +71,9 @@ func main() {
 	defer nodeProvider.Close()
 
 	nodes.Provider = nodeProvider
-	inbounds := nodeservice.InboundService{Service: nodes}
-	routeRules := nodeservice.RouteRuleService{Service: nodes}
-	outbounds := nodeservice.OutboundService{Service: nodes}
+	inbounds := inboundservice.InboundService{Repo: inboundsDB, Nodes: nodes, Mu: stateMu}
+	routeRules := routeruleservice.RouteRuleService{Repo: routerulerepo.Nodes{Provider: nodeProvider}, Mu: stateMu}
+	outbounds := outboundservice.OutboundService{Repo: outboundrepo.Nodes{Provider: nodeProvider}, Mu: stateMu}
 	configs := configservice.Service{
 		Repo:     configrepo.Postgres{DB: db},
 		Nodes:    nodes,
@@ -104,9 +115,9 @@ func main() {
 	api.RegisterUserServiceServer(grpcServer, userhandlers.Users{Service: users})
 	api.RegisterAuthServiceServer(grpcServer, authhandlers.Auth{Service: login})
 	api.RegisterNodeServiceServer(grpcServer, nodehandlers.Nodes{Service: nodes})
-	api.RegisterNodeInboundServiceServer(grpcServer, nodehandlers.Inbounds{Service: inbounds})
-	api.RegisterNodeRouteRuleServiceServer(grpcServer, nodehandlers.RouteRules{Service: routeRules})
-	api.RegisterNodeOutboundServiceServer(grpcServer, nodehandlers.Outbounds{Service: outbounds})
+	api.RegisterNodeInboundServiceServer(grpcServer, inboundhandlers.Inbounds{Service: inbounds})
+	api.RegisterNodeRouteRuleServiceServer(grpcServer, routerulehandlers.RouteRules{Service: routeRules})
+	api.RegisterNodeOutboundServiceServer(grpcServer, outboundhandlers.Outbounds{Service: outbounds})
 	api.RegisterConfigServiceServer(grpcServer, confighandlers.Configs{Service: configs})
 	api.RegisterRoutingServiceServer(grpcServer, routinghandlers.Handler{Service: routes})
 	api.RegisterRuleSetServiceServer(grpcServer, rulesethandlers.Handler{Service: sets})

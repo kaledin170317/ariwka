@@ -2,11 +2,16 @@ package repo
 
 import (
 	"context"
+	"database/sql"
 
 	sq "github.com/Masterminds/squirrel"
 
 	"vpn/internal/control/node/model"
 )
+
+type Postgres struct{ DB *sql.DB }
+
+var builder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 func (r Postgres) CreateInbound(ctx context.Context, config model.InboundConfig) error {
 	_, err := builder.

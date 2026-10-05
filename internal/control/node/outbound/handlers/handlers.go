@@ -4,7 +4,7 @@ import (
 	"context"
 
 	api "vpn/gen/control"
-	"vpn/internal/control/node/service"
+	"vpn/internal/control/node/outbound/service"
 )
 
 type Outbounds struct {

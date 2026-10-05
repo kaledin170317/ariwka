@@ -6,8 +6,8 @@ import (
 
 	api "vpn/gen/control"
 	common "vpn/gen/vpn/common"
+	"vpn/internal/control/node/inbound/service"
 	"vpn/internal/control/node/model"
-	"vpn/internal/control/node/service"
 )
 
 type Inbounds struct {
