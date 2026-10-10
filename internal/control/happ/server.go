@@ -1,4 +1,4 @@
-package subscription
+package happ
 
 import (
 	"log"
@@ -10,7 +10,8 @@ import (
 
 func Serve(domain string, profiles Profiles, users Users) error {
 	mux := http.NewServeMux()
-	mux.Handle("GET /sub/{userID}", Handler{Profiles: profiles, Users: users})
+	mux.Handle("GET /happ/sub/{userID}", Handler{Profiles: profiles, Users: users, Metadata: subMetadata})
+	mux.Handle("GET /happ/default/{userID}", Handler{Profiles: profiles, Users: users, Default: true, Metadata: defaultMetadata})
 
 	manager := &autocert.Manager{
 		Prompt:     autocert.AcceptTOS,

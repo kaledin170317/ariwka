@@ -39,6 +39,11 @@ type NodeInbound struct {
 	Inbound model.Inbound
 }
 
+const (
+	DefaultPrefix = "default:"
+	defaultPort   = 1489
+)
+
 func (s InboundService) ListInbounds(ctx context.Context) ([]NodeInbound, error) {
 	nodes, err := s.Nodes.List(ctx)
 	if err != nil {
@@ -165,7 +170,7 @@ func (s InboundService) AddVlessInbound(ctx context.Context, nodeID string, port
 }
 
 func (s InboundService) DeleteInbound(ctx context.Context, nodeID, tag string) error {
-	if strings.HasPrefix(tag, "mesh:") {
+	if strings.HasPrefix(tag, "mesh:") || strings.HasPrefix(tag, DefaultPrefix) {
 		return errors.New("reserved inbound tag")
 	}
 

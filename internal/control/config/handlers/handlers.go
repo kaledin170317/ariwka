@@ -5,7 +5,7 @@ import (
 
 	api "vpn/gen/control"
 	"vpn/internal/control/config/service"
-	"vpn/internal/control/subscription"
+	"vpn/internal/control/happ"
 	usercontext "vpn/internal/control/user/context"
 )
 
@@ -78,7 +78,18 @@ func (h Configs) GetProfile(ctx context.Context, req *api.GetProfileRequest) (*a
 func (h Configs) GetSubscriptionLink(ctx context.Context, _ *api.GetSubscriptionLinkRequest) (*api.GetSubscriptionLinkResponse, error) {
 	u, _ := usercontext.User(ctx)
 
-	url, err := subscription.URL(u.ID)
+	url, err := happ.URL(u.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.GetSubscriptionLinkResponse{Url: url}, nil
+}
+
+func (h Configs) GetDefaultSubscriptionLink(ctx context.Context, _ *api.GetSubscriptionLinkRequest) (*api.GetSubscriptionLinkResponse, error) {
+	u, _ := usercontext.User(ctx)
+
+	url, err := happ.DefaultURL(u.ID)
 	if err != nil {
 		return nil, err
 	}

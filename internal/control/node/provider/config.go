@@ -32,6 +32,10 @@ func (n *Node) Link(inbound model.Inbound, userTag string) (string, error) {
 		name = flag + " " + n.Name
 	}
 
+	if strings.HasPrefix(inbound.Tag, "default:") {
+		name += " default"
+	}
+
 	if v := inbound.Vless; v != nil && slices.Contains(v.Users, userTag) {
 		return (link.Vless{
 			Tag:        name,

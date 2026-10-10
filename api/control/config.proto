@@ -12,6 +12,7 @@ service ConfigService {
   rpc GetConfig(GetConfigRequest) returns (GetConfigResponse);
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
   rpc GetSubscriptionLink(GetSubscriptionLinkRequest) returns (GetSubscriptionLinkResponse);
+  rpc GetDefaultSubscriptionLink(GetSubscriptionLinkRequest) returns (GetSubscriptionLinkResponse);
 }
 
 message CreateMyProfileRequest {

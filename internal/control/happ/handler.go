@@ -1,4 +1,4 @@
-package subscription
+package happ
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 )
 
 type Profiles interface {
-	Get(context.Context, string) ([]string, error)
+	GetSubscription(context.Context, string, bool) ([]string, error)
 }
 
 type Users interface {
@@ -24,15 +24,17 @@ type Users interface {
 type Handler struct {
 	Profiles Profiles
 	Users    Users
+	Metadata Metadata
+	Default  bool
 }
 
-func URL(userID string) (string, error) {
+func subscriptionURL(userID, network string) (string, error) {
 	domain := os.Getenv("SUBSCRIPTION_DOMAIN")
 	if domain == "" {
 		return "", errors.New("SUBSCRIPTION_DOMAIN is not set")
 	}
 
-	return "https://" + domain + "/sub/" + userID, nil
+	return "https://" + domain + "/happ/" + network + "/" + userID, nil
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +57,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	connections, err := h.Profiles.Get(r.Context(), userID)
+	connections, err := h.Profiles.GetSubscription(r.Context(), userID, h.Default)
 	if err != nil {
 		http.Error(w, "failed to load subscription", http.StatusBadGateway)
 		return
@@ -64,6 +66,6 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 
-	lines := append(metadata.Lines(), connections...)
+	lines := append(h.Metadata.Lines(), connections...)
 	_, _ = w.Write([]byte(strings.Join(lines, "\n") + "\n"))
 }

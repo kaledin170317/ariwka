@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -36,6 +37,7 @@ type Inbounds interface {
 
 type Users interface {
 	Get(context.Context, string) (usermodel.User, error)
+	List(context.Context) ([]usermodel.User, error)
 }
 
 type Service struct {
@@ -189,10 +191,15 @@ func (s Service) SyncUsers(ctx context.Context) error {
 		return err
 	}
 
+	users, err := s.Users.List(ctx)
+	if err != nil {
+		return err
+	}
+
 	var failures []error
 
 	for _, n := range nodes {
-		err = s.syncNodeUsers(ctx, n.ID)
+		err = s.syncNodeUsers(ctx, n.ID, users)
 		if err != nil {
 			failures = append(failures, fmt.Errorf("node %s: %w", n.Name, err))
 		}
@@ -201,21 +208,53 @@ func (s Service) SyncUsers(ctx context.Context) error {
 	return errors.Join(failures...)
 }
 
-func (s Service) Get(ctx context.Context, userID string) ([]string, error) {
-	profiles, err := s.GetProfiles(ctx, userID)
+func (s Service) GetSubscription(ctx context.Context, userID string, defaultNetwork bool) ([]string, error) {
+	if defaultNetwork {
+		s.Mu.Lock()
+		defer s.Mu.Unlock()
+
+		err := s.syncUserDefaults(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	profiles, err := s.Repo.List(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	connections := make([]string, 0, len(profiles))
 	for _, profile := range profiles {
-		connections = append(connections, profile.Link)
+		if strings.HasPrefix(profile.Inbound, "default:") != defaultNetwork {
+			continue
+		}
+
+		node, err := s.Nodes.Get(profile.NodeID)
+		if err != nil {
+			return nil, err
+		}
+
+		link, err := node.Config(ctx, profile.ID, profile.Inbound)
+		if err != nil {
+			return nil, err
+		}
+
+		connections = append(connections, link)
 	}
 
 	return connections, nil
 }
 
 func (s Service) GetProfiles(ctx context.Context, userID string) ([]model.Connection, error) {
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+
+	err := s.syncUserDefaults(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	profiles, err := s.Repo.List(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -253,7 +292,60 @@ func (s Service) GetProfile(ctx context.Context, userID, id string) (string, err
 	return node.Config(ctx, p.ID, p.Inbound)
 }
 
-func (s Service) syncNodeUsers(ctx context.Context, nodeID string) error {
+func (s Service) syncUserDefaults(ctx context.Context, userID string) error {
+	user, err := s.Users.Get(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	nodes, err := s.Nodes.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, n := range nodes {
+		inbounds, err := s.Inbounds.Inbounds(ctx, n.ID)
+		if err != nil {
+			return err
+		}
+
+		for _, inbound := range inbounds {
+			if inbound.Tag != "default:"+n.ID || inbound.Vless == nil {
+				continue
+			}
+
+			profiles, err := s.Repo.ListByInbound(ctx, inbound.Tag)
+			if err != nil {
+				return err
+			}
+
+			profiles, err = s.ensureDefaultProfiles(ctx, n.ID, profiles, []usermodel.User{user})
+			if err != nil {
+				return err
+			}
+
+			for _, profile := range profiles {
+				if profile.UserID == userID && profile.NodeID == n.ID {
+					server, err := s.Nodes.Get(n.ID)
+					if err != nil {
+						return err
+					}
+
+					err = s.syncProfile(ctx, server, inbound, profile)
+					if err != nil {
+						return err
+					}
+
+					break
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s Service) syncNodeUsers(ctx context.Context, nodeID string, users []usermodel.User) error {
 	node, err := s.Nodes.Get(nodeID)
 	if err != nil {
 		return err
@@ -271,6 +363,14 @@ func (s Service) syncNodeUsers(ctx context.Context, nodeID string) error {
 		if listErr != nil {
 			failures = append(failures, listErr)
 		} else {
+			if inbound.Tag == "default:"+nodeID && inbound.Vless != nil {
+				profiles, listErr = s.ensureDefaultProfiles(ctx, nodeID, profiles, users)
+				if listErr != nil {
+					failures = append(failures, listErr)
+					continue
+				}
+			}
+
 			for _, profile := range profiles {
 				if profile.NodeID == nodeID {
 					err = s.syncProfile(ctx, node, inbound, profile)
@@ -283,6 +383,37 @@ func (s Service) syncNodeUsers(ctx context.Context, nodeID string) error {
 	}
 
 	return errors.Join(failures...)
+}
+
+func (s Service) ensureDefaultProfiles(ctx context.Context, nodeID string, profiles []model.Profile, users []usermodel.User) ([]model.Profile, error) {
+	existing := make(map[string]bool, len(profiles))
+	for _, profile := range profiles {
+		if profile.NodeID == nodeID {
+			existing[profile.UserID] = true
+		}
+	}
+
+	for _, user := range users {
+		if existing[user.ID] {
+			continue
+		}
+
+		profile := model.Profile{
+			ID:      uuid.NewString(),
+			UserID:  user.ID,
+			NodeID:  nodeID,
+			Inbound: "default:" + nodeID,
+		}
+
+		err := s.Repo.Create(ctx, profile)
+		if err != nil {
+			return nil, err
+		}
+
+		profiles = append(profiles, profile)
+	}
+
+	return profiles, nil
 }
 
 func (s Service) syncProfile(ctx context.Context, node *provider.Node, inbound nodemodel.Inbound, profile model.Profile) error {

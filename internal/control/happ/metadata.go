@@ -1,4 +1,4 @@
-package subscription
+package happ
 
 import (
 	"strconv"
@@ -14,16 +14,6 @@ type Metadata struct {
 	PingOnOpen       bool
 	AutoUpdateOnOpen bool
 	Pin              bool
-}
-
-var metadata = Metadata{
-	Title:            "VPN Сергей Каледина",
-	Announcement:     "Здорова бандиты пока тестим че может happ",
-	UpdateInterval:   1,
-	SupportURL:       "https://t.me/kydimik",
-	PingOnOpen:       true,
-	AutoUpdateOnOpen: true,
-	Pin:              true,
 }
 
 func (m Metadata) Lines() []string {

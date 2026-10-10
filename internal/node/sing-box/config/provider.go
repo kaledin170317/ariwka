@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -305,6 +306,8 @@ func (c *Config) AddRoute(user, rule *string, action RouteAction, outboundTag st
 }
 
 func (c *Config) apply() error {
+	c.syncDefaultRoute()
+
 	f, err := os.Create(tmpConfigPath)
 	if err != nil {
 		return err
@@ -351,7 +354,34 @@ func (c *Config) sortRoutes() {
 	})
 }
 
+func (c *Config) syncDefaultRoute() {
+	rules := slices.DeleteFunc(slices.Clone(c.Route.Rules), func(rule routeRule) bool {
+		return len(rule.Inbound) == 1 &&
+			len(rule.RuleSet) == 0 && len(rule.AuthUser) == 0 && rule.Port == 0 &&
+			rule.Action == RouteActionRoute && rule.Outbound == "direct" &&
+			len(rule.IPCIDR) == 0 && strings.HasPrefix(rule.Inbound[0], "default:")
+	})
+
+	for _, inbound := range c.Inbounds {
+		if strings.HasPrefix(inbound.Tag, "default:") {
+			rules = append(rules, routeRule{
+				Inbound:  []string{inbound.Tag},
+				Action:   RouteActionRoute,
+				Outbound: "direct",
+			})
+		}
+	}
+
+	c.Route.Rules = rules
+	c.sortRoutes()
+}
+
 func routePriority(rule routeRule) int {
+	if len(rule.Inbound) == 1 && strings.HasPrefix(rule.Inbound[0], "default:") &&
+		rule.Action == RouteActionRoute && rule.Outbound == "direct" {
+		return -2
+	}
+
 	if len(rule.Inbound) > 0 && (rule.Port == 53 || rule.Port == 443) && rule.Action == RouteActionRoute && rule.Outbound == "direct" {
 		return -1
 	}

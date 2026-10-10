@@ -20,3 +20,17 @@ func (s Service) Subscription(ctx context.Context) (screens.View, error) {
 		},
 	}, nil
 }
+
+func (s Service) DefaultSubscription(ctx context.Context) (screens.View, error) {
+	url, err := s.User.DefaultSubscriptionLink(ctx)
+	if err != nil {
+		return screens.View{}, err
+	}
+
+	return screens.View{
+		Text: "Подписка Happ без маршрутизации:\n<code>" + html.EscapeString(url) + "</code>",
+		Buttons: [][]screens.Button{
+			{{Text: "← Профили", Data: "profiles"}},
+		},
+	}, nil
+}

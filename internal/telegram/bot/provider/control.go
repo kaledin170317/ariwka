@@ -111,6 +111,15 @@ func (u User) SubscriptionLink(ctx context.Context) (string, error) {
 	return resp.GetUrl(), nil
 }
 
+func (u User) DefaultSubscriptionLink(ctx context.Context) (string, error) {
+	resp, err := u.control.configs.GetDefaultSubscriptionLink(u.context(ctx), &api.GetSubscriptionLinkRequest{})
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetUrl(), nil
+}
+
 func (u User) Nodes(ctx context.Context) ([]Node, error) {
 	resp, err := u.control.nodes.List(u.context(ctx), &api.ListNodesRequest{})
 	if err != nil {
@@ -138,7 +147,8 @@ func (u User) Inbounds(ctx context.Context, nodeID string) ([]Inbound, error) {
 		}
 
 		inbound := item.GetInbound()
-		if inbound.GetNetwork() == common.InboundNetwork_INBOUND_NETWORK_INTERNAL {
+		if inbound.GetNetwork() == common.InboundNetwork_INBOUND_NETWORK_INTERNAL ||
+			inbound.GetNetwork() == common.InboundNetwork_INBOUND_NETWORK_DEFAULT {
 			continue
 		}
 

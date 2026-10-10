@@ -14,6 +14,7 @@ enum InboundNetwork {
   INBOUND_NETWORK_UNSPECIFIED = 0;
   INBOUND_NETWORK_USERS = 1;
   INBOUND_NETWORK_INTERNAL = 2;
+  INBOUND_NETWORK_DEFAULT = 3;
 }
 
 message VlessTransportOptions {

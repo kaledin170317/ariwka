@@ -11,7 +11,7 @@ type InboundType int32
 // ENUM(grpc=1, http)
 type VlessTransportType int32
 
-// ENUM(users=1, internal)
+// ENUM(users=1, internal, default)
 type InboundNetwork int32
 
 type VlessTransport struct {

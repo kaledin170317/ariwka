@@ -20,6 +20,7 @@ import (
 	confighandlers "vpn/internal/control/config/handlers"
 	configrepo "vpn/internal/control/config/repo"
 	configservice "vpn/internal/control/config/service"
+	"vpn/internal/control/happ"
 	nodehandlers "vpn/internal/control/node/handlers"
 	inboundhandlers "vpn/internal/control/node/inbound/handlers"
 	inboundrepo "vpn/internal/control/node/inbound/repo"
@@ -39,7 +40,6 @@ import (
 	rulesethandlers "vpn/internal/control/ruleset/handlers"
 	rulesetrepo "vpn/internal/control/ruleset/repo"
 	rulesetservice "vpn/internal/control/ruleset/service"
-	"vpn/internal/control/subscription"
 	userhandlers "vpn/internal/control/user/handlers"
 	userrepo "vpn/internal/control/user/repo"
 	userservice "vpn/internal/control/user/service"
@@ -88,6 +88,7 @@ func main() {
 	go func() {
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defaultErr := inbounds.SyncDefault(ctx)
 			inboundErr := inbounds.SyncInbounds(ctx)
 			meshErr := nodes.SyncMesh(ctx)
 			setErr := sets.Sync(ctx)
@@ -96,7 +97,7 @@ func main() {
 
 			cancel()
 
-			syncErr := errors.Join(inboundErr, meshErr, setErr, routeErr, userErr)
+			syncErr := errors.Join(defaultErr, inboundErr, meshErr, setErr, routeErr, userErr)
 			if syncErr != nil {
 				log.Printf("node sync: %v", syncErr)
 			}
@@ -124,7 +125,7 @@ func main() {
 	reflection.Register(grpcServer)
 
 	go func() {
-		log.Fatal(subscription.Serve(os.Getenv("SUBSCRIPTION_DOMAIN"), configs, users))
+		log.Fatal(happ.Serve(os.Getenv("SUBSCRIPTION_DOMAIN"), configs, users))
 	}()
 
 	listener, err := net.Listen("tcp", ":9092")
