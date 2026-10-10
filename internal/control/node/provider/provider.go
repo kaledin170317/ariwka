@@ -3,9 +3,11 @@ package provider
 import (
 	"context"
 	"errors"
+	"net"
 	"sync"
 	"time"
 
+	"github.com/xtls/xray-core/app/proxyman/command"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -25,6 +27,8 @@ type Node struct {
 	routes    api.RouteServiceClient
 	outbounds api.OutboundServiceClient
 	conn      *grpc.ClientConn
+	xray      command.HandlerServiceClient
+	xrayConn  *grpc.ClientConn
 }
 
 type Provider struct {
@@ -60,11 +64,27 @@ func (p *Provider) Add(node model.Node) error {
 		return err
 	}
 
+	host, _, err := net.SplitHostPort(node.Address)
+	if err != nil {
+		_ = conn.Close()
+		return err
+	}
+
+	xrayConn, err := grpc.NewClient(net.JoinHostPort(host, "9093"),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(interceptors.Timeout(30*time.Second)),
+	)
+	if err != nil {
+		_ = conn.Close()
+		return err
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	if old, ok := p.nodes[node.ID]; ok {
 		_ = old.conn.Close()
+		_ = old.xrayConn.Close()
 	}
 
 	p.nodes[node.ID] = &Node{
@@ -74,6 +94,8 @@ func (p *Provider) Add(node model.Node) error {
 		routes:    api.NewRouteServiceClient(conn),
 		outbounds: api.NewOutboundServiceClient(conn),
 		conn:      conn,
+		xray:      command.NewHandlerServiceClient(xrayConn),
+		xrayConn:  xrayConn,
 	}
 
 	return nil
@@ -97,6 +119,7 @@ func (p *Provider) Remove(id string) {
 
 	if node, ok := p.nodes[id]; ok {
 		_ = node.conn.Close()
+		_ = node.xrayConn.Close()
 
 		delete(p.nodes, id)
 	}
@@ -108,6 +131,7 @@ func (p *Provider) Close() {
 
 	for id, node := range p.nodes {
 		_ = node.conn.Close()
+		_ = node.xrayConn.Close()
 
 		delete(p.nodes, id)
 	}

@@ -100,24 +100,18 @@ func (s Service) Create(ctx context.Context, userID, nodeID, inbound string) (st
 		return "", "", err
 	}
 
-	var created nodemodel.Inbound
-	if selected.Hysteria2 != nil {
-		created, err = node.AddHysteria2User(ctx, inbound, nodemodel.InboundUser{
-			Name:     id,
-			Password: password,
-		})
-	} else {
-		created, err = node.AddVlessUser(ctx, inbound, nodemodel.VlessUser{
-			Tag:  id,
-			UUID: id,
-		})
+	err = node.XrayAddUser(ctx, inbound, nodemodel.VlessUser{Tag: id, UUID: id}, password)
+	if err != nil {
+		_ = s.Repo.Delete(ctx, userID, id)
+		return "", "", err
 	}
 
+	selected, err = s.inbound(ctx, nodeID, inbound)
 	if err != nil {
 		return "", "", err
 	}
 
-	connection, err := node.Link(created, id)
+	connection, err := node.Link(selected, id)
 	if err != nil {
 		return "", "", err
 	}
@@ -139,7 +133,7 @@ func (s Service) Delete(ctx context.Context, userID, id string) error {
 		return err
 	}
 
-	inbounds, err := node.Inbounds(ctx)
+	inbounds, err := s.Inbounds.Inbounds(ctx, profile.NodeID)
 	if err != nil {
 		return err
 	}
@@ -169,7 +163,7 @@ func (s Service) Delete(ctx context.Context, userID, id string) error {
 			}
 
 			if exists {
-				err = node.RemoveUser(ctx, id, profile.Inbound)
+				err = node.XrayRemoveUser(ctx, profile.Inbound, id)
 				if err != nil {
 					return err
 				}
@@ -235,7 +229,12 @@ func (s Service) GetSubscription(ctx context.Context, userID string, defaultNetw
 			return nil, err
 		}
 
-		link, err := node.Config(ctx, profile.ID, profile.Inbound)
+		inbound, err := s.inbound(ctx, profile.NodeID, profile.Inbound)
+		if err != nil {
+			return nil, err
+		}
+
+		link, err := node.Link(inbound, profile.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -267,7 +266,12 @@ func (s Service) GetProfiles(ctx context.Context, userID string) ([]model.Connec
 			return nil, err
 		}
 
-		link, err := node.Config(ctx, p.ID, p.Inbound)
+		inbound, err := s.inbound(ctx, p.NodeID, p.Inbound)
+		if err != nil {
+			return nil, err
+		}
+
+		link, err := node.Link(inbound, p.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -289,7 +293,12 @@ func (s Service) GetProfile(ctx context.Context, userID, id string) (string, err
 		return "", err
 	}
 
-	return node.Config(ctx, p.ID, p.Inbound)
+	inbound, err := s.inbound(ctx, p.NodeID, p.Inbound)
+	if err != nil {
+		return "", err
+	}
+
+	return node.Link(inbound, p.ID)
 }
 
 func (s Service) syncUserDefaults(ctx context.Context, userID string) error {
@@ -351,7 +360,7 @@ func (s Service) syncNodeUsers(ctx context.Context, nodeID string, users []userm
 		return err
 	}
 
-	inbounds, err := node.Inbounds(ctx)
+	inbounds, err := s.Inbounds.Inbounds(ctx, nodeID)
 	if err != nil {
 		return err
 	}
@@ -421,7 +430,12 @@ func (s Service) syncProfile(ctx context.Context, node *provider.Node, inbound n
 		for _, user := range v.UserDetails {
 			if user.Tag == profile.ID {
 				if user.UUID != profile.ID {
-					return node.ModifyVlessUser(ctx, inbound.Tag, profile.ID, profile.ID)
+					err := node.XrayRemoveUser(ctx, inbound.Tag, profile.ID)
+					if err != nil {
+						return err
+					}
+
+					return node.XrayAddUser(ctx, inbound.Tag, nodemodel.VlessUser{Tag: profile.ID, UUID: profile.ID}, "")
 				}
 
 				return nil
@@ -432,10 +446,10 @@ func (s Service) syncProfile(ctx context.Context, node *provider.Node, inbound n
 			return nil
 		}
 
-		_, err := node.AddVlessUser(ctx, inbound.Tag, nodemodel.VlessUser{
+		err := node.XrayAddUser(ctx, inbound.Tag, nodemodel.VlessUser{
 			Tag:  profile.ID,
 			UUID: profile.ID,
-		})
+		}, "")
 
 		return err
 	}
@@ -448,7 +462,12 @@ func (s Service) syncProfile(ctx context.Context, node *provider.Node, inbound n
 				}
 
 				if user.Password != profile.Password {
-					return node.ModifyHysteria2User(ctx, inbound.Tag, profile.ID, profile.Password)
+					err := node.XrayRemoveUser(ctx, inbound.Tag, profile.ID)
+					if err != nil {
+						return err
+					}
+
+					return node.XrayAddUser(ctx, inbound.Tag, nodemodel.VlessUser{Tag: profile.ID}, profile.Password)
 				}
 
 				return nil
@@ -456,16 +475,33 @@ func (s Service) syncProfile(ctx context.Context, node *provider.Node, inbound n
 		}
 
 		if profile.Password == "" {
-			return errors.New("no password stored")
+			profile.Password = rand.Text()
+
+			err := s.Repo.SavePassword(ctx, profile.ID, profile.Password)
+			if err != nil {
+				return err
+			}
 		}
 
-		_, err := node.AddHysteria2User(ctx, inbound.Tag, nodemodel.InboundUser{
-			Name:     profile.ID,
-			Password: profile.Password,
-		})
+		err := node.XrayAddUser(ctx, inbound.Tag, nodemodel.VlessUser{Tag: profile.ID}, profile.Password)
 
 		return err
 	}
 
 	return errors.New("unsupported inbound type")
+}
+
+func (s Service) inbound(ctx context.Context, nodeID, tag string) (nodemodel.Inbound, error) {
+	inbounds, err := s.Inbounds.Inbounds(ctx, nodeID)
+	if err != nil {
+		return nodemodel.Inbound{}, err
+	}
+
+	for _, inbound := range inbounds {
+		if inbound.Tag == tag {
+			return inbound, nil
+		}
+	}
+
+	return nodemodel.Inbound{}, fmt.Errorf("inbound %s not found", tag)
 }

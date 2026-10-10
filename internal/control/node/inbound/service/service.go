@@ -20,6 +20,7 @@ import (
 type Repository interface {
 	CreateInbound(context.Context, model.InboundConfig) error
 	ListInbounds(context.Context, string) ([]model.InboundConfig, error)
+	SaveInbound(context.Context, model.InboundConfig) error
 	DeleteInbound(context.Context, string, string) error
 }
 
@@ -72,26 +73,12 @@ func (s InboundService) Inbounds(ctx context.Context, nodeID string) ([]model.In
 		return nil, err
 	}
 
-	inbounds, err := node.Inbounds(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	configs, err := s.Repo.ListInbounds(ctx, nodeID)
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range inbounds {
-		for _, config := range configs {
-			if config.Tag == inbounds[i].Tag {
-				inbounds[i].Network = config.Network
-				break
-			}
-		}
-	}
-
-	return inbounds, nil
+	return node.XrayInbounds(ctx, configs)
 }
 
 func (s InboundService) AddHysteria2Inbound(ctx context.Context, nodeID string, port int32) (model.Inbound, error) {
@@ -116,7 +103,12 @@ func (s InboundService) AddHysteria2Inbound(ctx context.Context, nodeID string, 
 		return model.Inbound{}, err
 	}
 
-	return node.AddHysteria2Inbound(ctx, config.Tag, port)
+	created, err := node.XrayAddInbound(ctx, config)
+	if err != nil {
+		_ = s.Repo.DeleteInbound(ctx, nodeID, config.Tag)
+	}
+
+	return created, err
 }
 
 func (s InboundService) AddVlessInbound(ctx context.Context, nodeID string, port int32, serverName string, transport model.VlessTransportOptions) (model.Inbound, error) {
@@ -166,7 +158,12 @@ func (s InboundService) AddVlessInbound(ctx context.Context, nodeID string, port
 		return model.Inbound{}, err
 	}
 
-	return node.AddVlessInbound(ctx, config)
+	created, err := node.XrayAddInbound(ctx, config)
+	if err != nil {
+		_ = s.Repo.DeleteInbound(ctx, nodeID, config.Tag)
+	}
+
+	return created, err
 }
 
 func (s InboundService) DeleteInbound(ctx context.Context, nodeID, tag string) error {
@@ -200,14 +197,14 @@ func (s InboundService) DeleteInbound(ctx context.Context, nodeID, tag string) e
 		return err
 	}
 
-	inbounds, err := node.Inbounds(ctx)
+	inbounds, err := node.XrayInbounds(ctx, configs)
 	if err != nil {
 		return err
 	}
 
 	for _, inbound := range inbounds {
 		if inbound.Tag == tag {
-			err = node.RemoveInbound(ctx, tag)
+			err = node.XrayRemoveInbound(ctx, tag)
 			if err != nil {
 				return err
 			}
@@ -259,46 +256,72 @@ func (s InboundService) syncNode(ctx context.Context, nodeID string) error {
 		return err
 	}
 
-	current, err := node.Inbounds(ctx)
+	for i := range desired {
+		c := &desired[i]
+		if c.Network == model.InboundNetworkInternal || c.Type != model.InboundTypeVless || c.PrivateKey != "" {
+			continue
+		}
+
+		key := make([]byte, 32)
+		short := make([]byte, 8)
+
+		_, err = rand.Read(key)
+		if err != nil {
+			return err
+		}
+
+		_, err = rand.Read(short)
+		if err != nil {
+			return err
+		}
+
+		c.PrivateKey = base64.RawURLEncoding.EncodeToString(key)
+
+		c.ShortID = hex.EncodeToString(short)
+		if c.ServerName == "" {
+			c.ServerName = "www.cloudflare.com"
+		}
+
+		if !c.Transport.Type.IsValid() {
+			c.Transport.Type = model.VlessTransportTypeGrpc
+		}
+
+		if c.Transport.Type == model.VlessTransportTypeGrpc && c.ServiceName == "" {
+			c.ServiceName = rand.Text()
+		}
+
+		err = s.Repo.SaveInbound(ctx, *c)
+		if err != nil {
+			return err
+		}
+	}
+
+	current, err := node.XrayInbounds(ctx, desired)
 	if err != nil {
 		return err
 	}
 
-	desiredTags := make(map[string]bool, len(desired))
-	for _, config := range desired {
-		desiredTags[config.Tag] = true
-	}
-
 	tags := make(map[string]model.Inbound, len(current))
 	for _, inbound := range current {
-		if desiredTags[inbound.Tag] {
-			tags[inbound.Tag] = inbound
-		} else {
-			err = node.RemoveInbound(ctx, inbound.Tag)
-			if err != nil {
-				return fmt.Errorf("remove extra inbound %s: %w", inbound.Tag, err)
-			}
-		}
+		tags[inbound.Tag] = inbound
 	}
 
 	var failures []error
 
 	for _, config := range desired {
-		if existing, ok := tags[config.Tag]; ok {
-			err = node.ModifyInbound(ctx, config, existing)
-		} else {
-			switch config.Type {
-			case model.InboundTypeHysteria2:
-				_, err = node.AddHysteria2Inbound(ctx, config.Tag, config.Port)
-			case model.InboundTypeVless:
-				if config.PrivateKey != "" {
-					_, err = node.AddVlessInbound(ctx, config)
-				} else {
-					err = errors.New("no private key stored")
-				}
-			default:
-				err = fmt.Errorf("unsupported inbound type %d", config.Type)
-			}
+		if config.Network == model.InboundNetworkInternal {
+			continue
+		}
+
+		if _, ok := tags[config.Tag]; ok {
+			continue
+		}
+
+		switch config.Type {
+		case model.InboundTypeHysteria2, model.InboundTypeVless:
+			_, err = node.XrayAddInbound(ctx, config)
+		default:
+			err = fmt.Errorf("unsupported inbound type %d", config.Type)
 		}
 
 		if err != nil {

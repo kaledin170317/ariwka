@@ -25,21 +25,9 @@ import (
 	inboundhandlers "vpn/internal/control/node/inbound/handlers"
 	inboundrepo "vpn/internal/control/node/inbound/repo"
 	inboundservice "vpn/internal/control/node/inbound/service"
-	outboundhandlers "vpn/internal/control/node/outbound/handlers"
-	outboundrepo "vpn/internal/control/node/outbound/repo"
-	outboundservice "vpn/internal/control/node/outbound/service"
 	"vpn/internal/control/node/provider"
 	noderepo "vpn/internal/control/node/repo"
-	routerulehandlers "vpn/internal/control/node/route_rule/handlers"
-	routerulerepo "vpn/internal/control/node/route_rule/repo"
-	routeruleservice "vpn/internal/control/node/route_rule/service"
 	nodeservice "vpn/internal/control/node/service"
-	routinghandlers "vpn/internal/control/routing/handlers"
-	routingrepo "vpn/internal/control/routing/repo"
-	routingservice "vpn/internal/control/routing/service"
-	rulesethandlers "vpn/internal/control/ruleset/handlers"
-	rulesetrepo "vpn/internal/control/ruleset/repo"
-	rulesetservice "vpn/internal/control/ruleset/service"
 	userhandlers "vpn/internal/control/user/handlers"
 	userrepo "vpn/internal/control/user/repo"
 	userservice "vpn/internal/control/user/service"
@@ -72,8 +60,6 @@ func main() {
 
 	nodes.Provider = nodeProvider
 	inbounds := inboundservice.InboundService{Repo: inboundsDB, Nodes: nodes, Mu: stateMu}
-	routeRules := routeruleservice.RouteRuleService{Repo: routerulerepo.Nodes{Provider: nodeProvider}, Mu: stateMu}
-	outbounds := outboundservice.OutboundService{Repo: outboundrepo.Nodes{Provider: nodeProvider}, Mu: stateMu}
 	configs := configservice.Service{
 		Repo:     configrepo.Postgres{DB: db},
 		Nodes:    nodes,
@@ -81,23 +67,17 @@ func main() {
 		Users:    users,
 		Mu:       stateMu,
 	}
-	setsDB := rulesetrepo.Postgres{DB: db}
-	sets := rulesetservice.Service{Repo: setsDB, Nodes: nodes, Mu: stateMu}
-	routes := routingservice.Service{Repo: routingrepo.Postgres{DB: db}, Nodes: nodes, Sets: setsDB, Mu: stateMu}
 
 	go func() {
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defaultErr := inbounds.SyncDefault(ctx)
 			inboundErr := inbounds.SyncInbounds(ctx)
-			meshErr := nodes.SyncMesh(ctx)
-			setErr := sets.Sync(ctx)
-			routeErr := routes.Sync(ctx)
 			userErr := configs.SyncUsers(ctx)
 
 			cancel()
 
-			syncErr := errors.Join(defaultErr, inboundErr, meshErr, setErr, routeErr, userErr)
+			syncErr := errors.Join(defaultErr, inboundErr, userErr)
 			if syncErr != nil {
 				log.Printf("node sync: %v", syncErr)
 			}
@@ -117,11 +97,7 @@ func main() {
 	api.RegisterAuthServiceServer(grpcServer, authhandlers.Auth{Service: login})
 	api.RegisterNodeServiceServer(grpcServer, nodehandlers.Nodes{Service: nodes})
 	api.RegisterNodeInboundServiceServer(grpcServer, inboundhandlers.Inbounds{Service: inbounds})
-	api.RegisterNodeRouteRuleServiceServer(grpcServer, routerulehandlers.RouteRules{Service: routeRules})
-	api.RegisterNodeOutboundServiceServer(grpcServer, outboundhandlers.Outbounds{Service: outbounds})
 	api.RegisterConfigServiceServer(grpcServer, confighandlers.Configs{Service: configs})
-	api.RegisterRoutingServiceServer(grpcServer, routinghandlers.Handler{Service: routes})
-	api.RegisterRuleSetServiceServer(grpcServer, rulesethandlers.Handler{Service: sets})
 	reflection.Register(grpcServer)
 
 	go func() {

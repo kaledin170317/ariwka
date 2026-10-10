@@ -3,9 +3,6 @@
   become: true
   gather_facts: false
   
-  vars:
-    sing_box_version: "1.14.0"
-
   tasks:
     - name: Init
       tags:
@@ -19,22 +16,6 @@
             update_cache: true
             state: present
 
-        - name: Install sing-box
-          ansible.builtin.shell:
-            cmd: curl -fsSL https://sing-box.app/install.sh | sh -s -- --version {{ sing_box_version }}
-            creates: /usr/bin/sing-box
-
-        - name: Create default sing-box config
-          ansible.builtin.copy:
-            src: artefacts/sing-box.json
-            dest: /etc/sing-box/config.json
-            mode: "0644"
-
-        - name: Restart sing-box service
-          ansible.builtin.systemd_service:
-            name: sing-box
-            state: restarted
-
     - name: Setup
       tags:
         - setup
@@ -45,26 +26,6 @@
             content: |
               SERVER_HOST={{ ansible_host }}
             dest: /etc/default/node
-            mode: "0644"
-
-        - name: Generate Hysteria certificate
-          ansible.builtin.command:
-            cmd: >
-              openssl req -x509 -newkey rsa:2048 -nodes
-              -keyout /etc/sing-box/hy2_key.pem
-              -out /etc/sing-box/hy2_cert.pem
-              -days 3650
-              -subj /CN=vpn
-            creates: /etc/sing-box/hy2_cert.pem
-
-        - name: Set Hysteria key permissions
-          ansible.builtin.file:
-            path: /etc/sing-box/hy2_key.pem
-            mode: "0600"
-
-        - name: Set Hysteria cert permissions
-          ansible.builtin.file:
-            path: /etc/sing-box/hy2_cert.pem
             mode: "0644"
 
         - name: Copy systemd service
@@ -78,6 +39,67 @@
             name: node
             enabled: true
             daemon_reload: true
+
+    - name: Xray
+      tags:
+        - setup
+        - deploy
+      block:
+        - name: Install Docker
+          ansible.builtin.apt:
+            name:
+              - docker.io
+              - docker-compose
+            update_cache: true
+            state: present
+
+        - name: Start Docker
+          ansible.builtin.systemd_service:
+            name: docker
+            enabled: true
+            state: started
+
+        - name: Create Xray config directory
+          ansible.builtin.file:
+            path: /etc/xray
+            state: directory
+            mode: "0755"
+
+        - name: Generate Hysteria certificate
+          ansible.builtin.command:
+            cmd: >
+              openssl req -x509 -newkey rsa:2048 -nodes
+              -keyout /etc/xray/hy2_key.pem
+              -out /etc/xray/hy2_cert.pem
+              -days 3650
+              -subj /CN=vpn
+            creates: /etc/xray/hy2_cert.pem
+
+        - name: Set Hysteria key permissions
+          ansible.builtin.file:
+            path: /etc/xray/hy2_key.pem
+            mode: "0600"
+
+        - name: Copy Xray config
+          ansible.builtin.copy:
+            src: artefacts/xray.json
+            dest: /etc/xray/config.json
+            mode: "0644"
+
+        - name: Copy Xray Compose file
+          ansible.builtin.copy:
+            src: artefacts/xray.yml
+            dest: /etc/xray/compose.yml
+            mode: "0644"
+
+        - name: Stop old sing-box service if installed
+          ansible.builtin.shell: systemctl disable --now sing-box
+          register: old_sing_box
+          changed_when: old_sing_box.rc == 0
+          failed_when: false
+
+        - name: Start Xray container
+          ansible.builtin.command: docker-compose -f /etc/xray/compose.yml up -d
 
     - name: Deploy
       tags:

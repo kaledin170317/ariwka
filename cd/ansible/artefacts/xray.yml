@@ -1,0 +1,10 @@
+services:
+  xray:
+    image: ghcr.io/xtls/xray-core:26.9.9
+    restart: unless-stopped
+    network_mode: host
+    command: ["run", "-c", "/usr/local/etc/xray/config.json"]
+    volumes:
+      - /etc/xray/config.json:/usr/local/etc/xray/config.json:ro
+      - /etc/xray/hy2_cert.pem:/etc/xray/hy2_cert.pem:ro
+      - /etc/xray/hy2_key.pem:/etc/xray/hy2_key.pem:ro

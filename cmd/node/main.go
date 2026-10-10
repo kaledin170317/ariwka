@@ -5,41 +5,27 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
-
-	api "vpn/gen/node"
-	"vpn/internal/node/sing-box/handlers"
-	"vpn/internal/node/sing-box/service"
-	"vpn/pkg/grpcui"
+	"google.golang.org/grpc/credentials/insecure"
+	"vpn/internal/node/xray/proxy"
 )
 
 func main() {
-	singBox := service.NewSingBoxService()
+	xray, err := grpc.NewClient("127.0.0.1:10085", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer xray.Close()
 
-	err := singBox.Sync()
+	xrayServer := grpc.NewServer(
+		grpc.ForceServerCodec(proxy.Codec{}),
+		grpc.UnknownServiceHandler((proxy.Proxy{Connection: xray}).Handle),
+	)
+
+	xrayListener, err := net.Listen("tcp", ":9093")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	server := grpc.NewServer()
-	api.RegisterInboundServiceServer(server, &handlers.InboundHandler{Service: &singBox})
-	api.RegisterUserServiceServer(server, &handlers.UserHandler{Service: &singBox})
-	api.RegisterRouteServiceServer(server, &handlers.RouteHandler{Service: &singBox})
-	api.RegisterOutboundServiceServer(server, &handlers.OutboundHandler{Service: &singBox})
-	reflection.Register(server)
-
-	listener, err := net.Listen("tcp", ":9091")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	go func() {
-		err = server.Serve(listener)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}()
-
-	log.Println("gRPC :9091, grpcui http://localhost:8081")
-	log.Fatal(grpcui.Serve(":8081", "127.0.0.1:9091"))
+	log.Println("Xray gRPC proxy :9093")
+	log.Fatal(xrayServer.Serve(xrayListener))
 }

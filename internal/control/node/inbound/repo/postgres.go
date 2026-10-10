@@ -57,6 +57,19 @@ func (r Postgres) ListInbounds(ctx context.Context, nodeID string) ([]model.Inbo
 	return configs, rows.Err()
 }
 
+func (r Postgres) SaveInbound(ctx context.Context, config model.InboundConfig) error {
+	_, err := builder.Update("node_inbounds").
+		Set("server_name", config.ServerName).
+		Set("transport_type", config.Transport.Type).
+		Set("service_name", config.ServiceName).
+		Set("private_key", config.PrivateKey).
+		Set("short_id", config.ShortID).
+		Where(sq.Eq{"node_id": config.NodeID, "tag": config.Tag}).
+		RunWith(r.DB).ExecContext(ctx)
+
+	return err
+}
+
 func (r Postgres) DeleteInbound(ctx context.Context, nodeID, tag string) error {
 	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {

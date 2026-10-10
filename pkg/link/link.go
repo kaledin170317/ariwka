@@ -56,7 +56,7 @@ func (v Vless) String() string {
 		params.Set("type", "grpc")
 		params.Set("serviceName", t.ServiceName)
 	case "http":
-		params.Set("type", "http")
+		params.Set("type", "xhttp")
 		params.Set("path", t.Path)
 
 		if t.Host != "" {
