@@ -314,6 +314,13 @@ func (s InboundService) syncNode(ctx context.Context, nodeID string) error {
 		}
 
 		if _, ok := tags[config.Tag]; ok {
+			if config.Network == model.InboundNetworkUsers {
+				err = node.XrayEnableSniffing(ctx, config.Tag)
+				if err != nil {
+					failures = append(failures, fmt.Errorf("inbound %s sniffing: %w", config.Tag, err))
+				}
+			}
+
 			continue
 		}
 

@@ -7,7 +7,7 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 
-	"vpn/internal/control/ruleset/model"
+	"vpn/internal/control/rulefiles/model"
 )
 
 type Postgres struct{ DB *sql.DB }
@@ -16,13 +16,13 @@ var builder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
 func (r Postgres) Create(ctx context.Context, item model.Item) error {
 	result, err := builder.
-		Insert("rule_sets").
-		Columns("tag", "url", "format", "active").
-		Values(item.Tag, item.URL, item.Format, true).
+		Insert("rule_files").
+		Columns("tag", "geoip_url", "geosite_url", "active").
+		Values(item.Tag, item.GeoIPURL, item.GeoSiteURL, true).
 		Suffix(`ON CONFLICT (tag) DO UPDATE SET
-			url = EXCLUDED.url, format = EXCLUDED.format,
+			geoip_url = EXCLUDED.geoip_url, geosite_url = EXCLUDED.geosite_url,
 			active = TRUE
-			WHERE NOT rule_sets.active`).
+			WHERE NOT rule_files.active`).
 		RunWith(r.DB).
 		ExecContext(ctx)
 	if err != nil {
@@ -35,7 +35,7 @@ func (r Postgres) Create(ctx context.Context, item model.Item) error {
 	}
 
 	if count == 0 {
-		return fmt.Errorf("rule set %s already exists", item.Tag)
+		return fmt.Errorf("rule files %s already exist", item.Tag)
 	}
 
 	return nil
@@ -43,9 +43,9 @@ func (r Postgres) Create(ctx context.Context, item model.Item) error {
 
 func (r Postgres) Update(ctx context.Context, item model.Item) error {
 	result, err := builder.
-		Update("rule_sets").
-		Set("url", item.URL).
-		Set("format", item.Format).
+		Update("rule_files").
+		Set("geoip_url", item.GeoIPURL).
+		Set("geosite_url", item.GeoSiteURL).
 		Where(sq.Eq{"tag": item.Tag, "active": true}).
 		RunWith(r.DB).
 		ExecContext(ctx)
@@ -67,7 +67,7 @@ func (r Postgres) Update(ctx context.Context, item model.Item) error {
 
 func (r Postgres) Delete(ctx context.Context, tag string) error {
 	result, err := builder.
-		Update("rule_sets").
+		Update("rule_files").
 		Set("active", false).
 		Where(sq.Eq{"tag": tag, "active": true}).
 		RunWith(r.DB).
@@ -92,20 +92,20 @@ func (r Postgres) Get(ctx context.Context, tag string) (model.Item, error) {
 	var item model.Item
 
 	err := builder.
-		Select("tag", "url", "format", "active").
-		From("rule_sets").
+		Select("tag", "geoip_url", "geosite_url", "active").
+		From("rule_files").
 		Where(sq.Eq{"tag": tag}).
 		RunWith(r.DB).
 		QueryRowContext(ctx).
-		Scan(&item.Tag, &item.URL, &item.Format, &item.Active)
+		Scan(&item.Tag, &item.GeoIPURL, &item.GeoSiteURL, &item.Active)
 
 	return item, err
 }
 
 func (r Postgres) List(ctx context.Context) ([]model.Item, error) {
 	rows, err := builder.
-		Select("tag", "url", "format", "active").
-		From("rule_sets").
+		Select("tag", "geoip_url", "geosite_url", "active").
+		From("rule_files").
 		OrderBy("tag").
 		RunWith(r.DB).
 		QueryContext(ctx)
@@ -119,7 +119,7 @@ func (r Postgres) List(ctx context.Context) ([]model.Item, error) {
 	for rows.Next() {
 		var item model.Item
 
-		err = rows.Scan(&item.Tag, &item.URL, &item.Format, &item.Active)
+		err = rows.Scan(&item.Tag, &item.GeoIPURL, &item.GeoSiteURL, &item.Active)
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +136,7 @@ func (r Postgres) Used(ctx context.Context, tag string) (bool, error) {
 	err := builder.
 		Select("tag").
 		From("routing_policies").
-		Where(sq.Eq{"rule_set": tag, "active": true}).
+		Where(sq.Eq{"rule_file": tag, "active": true}).
 		Limit(1).
 		RunWith(r.DB).
 		QueryRowContext(ctx).

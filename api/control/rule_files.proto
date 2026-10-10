@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package control;
+
+option go_package = "vpn/gen/control;control";
+
+service RuleFilesService {
+  rpc List(ListRuleFilesRequest) returns (ListRuleFilesResponse);
+  rpc Create(CreateRuleFilesRequest) returns (CreateRuleFilesResponse);
+  rpc Delete(DeleteRuleFilesRequest) returns (DeleteRuleFilesResponse);
+  rpc Update(UpdateRuleFilesRequest) returns (UpdateRuleFilesResponse);
+}
+
+message RuleFiles {
+  string tag = 1;
+  string geoip_url = 2;
+  string geosite_url = 3;
+  reserved 4;
+}
+
+message CreateRuleFilesRequest { RuleFiles files = 1; }
+message CreateRuleFilesResponse {}
+message DeleteRuleFilesRequest { string tag = 1; }
+message DeleteRuleFilesResponse {}
+message UpdateRuleFilesRequest { RuleFiles files = 1; }
+message UpdateRuleFilesResponse {}
+message ListRuleFilesRequest {}
+message ListRuleFilesResponse { repeated RuleFiles files = 1; }

@@ -28,6 +28,13 @@ import (
 	"vpn/internal/control/node/provider"
 	noderepo "vpn/internal/control/node/repo"
 	nodeservice "vpn/internal/control/node/service"
+	routinghandlers "vpn/internal/control/routing/handlers"
+	routingrepo "vpn/internal/control/routing/repo"
+	routingservice "vpn/internal/control/routing/service"
+	rulefileshandlers "vpn/internal/control/rulefiles/handlers"
+	rulefilesprovider "vpn/internal/control/rulefiles/provider"
+	rulefilesrepo "vpn/internal/control/rulefiles/repo"
+	rulefilesservice "vpn/internal/control/rulefiles/service"
 	userhandlers "vpn/internal/control/user/handlers"
 	userrepo "vpn/internal/control/user/repo"
 	userservice "vpn/internal/control/user/service"
@@ -67,17 +74,23 @@ func main() {
 		Users:    users,
 		Mu:       stateMu,
 	}
+	setsDB := rulefilesrepo.Postgres{DB: db}
+	sets := rulefilesservice.Service{Repo: setsDB, Mu: stateMu}
+	routes := &routingservice.Service{Repo: routingrepo.Postgres{DB: db}, Nodes: nodes, Inbounds: inboundsDB,
+		Sets: setsDB, Data: rulefilesprovider.New(), Mu: stateMu}
 
 	go func() {
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 			defaultErr := inbounds.SyncDefault(ctx)
 			inboundErr := inbounds.SyncInbounds(ctx)
+			meshErr := nodes.SyncMesh(ctx)
+			routeErr := routes.Sync(ctx)
 			userErr := configs.SyncUsers(ctx)
 
 			cancel()
 
-			syncErr := errors.Join(defaultErr, inboundErr, userErr)
+			syncErr := errors.Join(defaultErr, inboundErr, meshErr, routeErr, userErr)
 			if syncErr != nil {
 				log.Printf("node sync: %v", syncErr)
 			}
@@ -98,6 +111,8 @@ func main() {
 	api.RegisterNodeServiceServer(grpcServer, nodehandlers.Nodes{Service: nodes})
 	api.RegisterNodeInboundServiceServer(grpcServer, inboundhandlers.Inbounds{Service: inbounds})
 	api.RegisterConfigServiceServer(grpcServer, confighandlers.Configs{Service: configs})
+	api.RegisterRoutingServiceServer(grpcServer, routinghandlers.Handler{Service: *routes})
+	api.RegisterRuleFilesServiceServer(grpcServer, rulefileshandlers.Handler{Service: sets})
 	reflection.Register(grpcServer)
 
 	go func() {

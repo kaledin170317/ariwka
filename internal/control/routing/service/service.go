@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"hash/fnv"
@@ -9,13 +10,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/xtls/xray-core/app/router"
 	"google.golang.org/protobuf/proto"
 
-	api "vpn/gen/node"
 	nodemodel "vpn/internal/control/node/model"
 	"vpn/internal/control/node/provider"
 	"vpn/internal/control/routing/model"
-	rulesetmodel "vpn/internal/control/ruleset/model"
+	rulefilesmodel "vpn/internal/control/rulefiles/model"
+	rulefilesprovider "vpn/internal/control/rulefiles/provider"
 )
 
 type Repository interface {
@@ -30,16 +32,25 @@ type Nodes interface {
 	Get(string) (*provider.Node, error)
 }
 
-type RuleSets interface {
-	Get(context.Context, string) (rulesetmodel.Item, error)
-	List(context.Context) ([]rulesetmodel.Item, error)
+type RuleFiles interface {
+	Get(context.Context, string) (rulefilesmodel.Item, error)
+	List(context.Context) ([]rulefilesmodel.Item, error)
 }
 
+type Inbounds interface {
+	ListInbounds(context.Context, string) ([]nodemodel.InboundConfig, error)
+}
+
+type fileCode struct{ file, code string }
+
 type Service struct {
-	Repo  Repository
-	Nodes Nodes
-	Sets  RuleSets
-	Mu    *sync.Mutex
+	Repo     Repository
+	Nodes    Nodes
+	Sets     RuleFiles
+	Inbounds Inbounds
+	Data     *rulefilesprovider.Provider
+	Mu       *sync.Mutex
+	applied  map[string][32]byte
 }
 
 func (s Service) Create(ctx context.Context, policy model.Policy) error {
@@ -51,7 +62,7 @@ func (s Service) Create(ctx context.Context, policy model.Policy) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
-	err = s.checkRuleSet(ctx, policy.RuleSet)
+	err = s.checkRuleFile(ctx, policy.RuleFile)
 	if err != nil {
 		return err
 	}
@@ -68,7 +79,7 @@ func (s Service) Update(ctx context.Context, policy model.Policy) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
-	err = s.checkRuleSet(ctx, policy.RuleSet)
+	err = s.checkRuleFile(ctx, policy.RuleFile)
 	if err != nil {
 		return err
 	}
@@ -92,8 +103,8 @@ func (s Service) List(ctx context.Context) ([]model.Policy, error) {
 	return slices.DeleteFunc(policies, func(p model.Policy) bool { return !p.Active }), nil
 }
 
-// Sync reconciles remote rule sets and mesh routes after mesh outbounds exist.
-func (s Service) Sync(ctx context.Context) error {
+// Sync replaces Xray's routing rules with the rules derived from active policies.
+func (s *Service) Sync(ctx context.Context) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
@@ -102,18 +113,9 @@ func (s Service) Sync(ctx context.Context) error {
 		return err
 	}
 
-	if len(policies) == 0 {
-		return nil
-	}
-
-	sets, err := s.Sets.List(ctx)
+	items, err := s.Sets.List(ctx)
 	if err != nil {
 		return err
-	}
-
-	known := make(map[string]bool, len(sets))
-	for _, set := range sets {
-		known[set.Tag] = true
 	}
 
 	nodes, err := s.Nodes.List(ctx)
@@ -123,10 +125,49 @@ func (s Service) Sync(ctx context.Context) error {
 
 	slices.SortFunc(nodes, func(a, b nodemodel.Node) int { return strings.Compare(a.ID, b.ID) })
 
+	sets := make(map[fileCode]rulefilesprovider.Data)
+
+	for _, policy := range policies {
+		if !policy.Active || policy.RuleFile == "" {
+			continue
+		}
+
+		key := fileCode{policy.RuleFile, policy.RuleCode}
+		if _, ok := sets[key]; ok {
+			continue
+		}
+
+		found := false
+
+		for _, item := range items {
+			if item.Tag != policy.RuleFile || !item.Active {
+				continue
+			}
+
+			data, loadErr := s.Data.Load(ctx, item, policy.RuleCode)
+			if loadErr != nil {
+				return fmt.Errorf("rule files %s: %w", item.Tag, loadErr)
+			}
+
+			sets[key] = data
+			found = true
+
+			break
+		}
+
+		if !found {
+			return fmt.Errorf("rule files %s not found", policy.RuleFile)
+		}
+	}
+
+	if s.applied == nil {
+		s.applied = make(map[string][32]byte)
+	}
+
 	var failures []error
 
 	for _, source := range nodes {
-		err = s.syncNode(ctx, source, nodes, policies, known)
+		err = s.syncNode(ctx, source, nodes, policies, sets)
 		if err != nil {
 			failures = append(failures, fmt.Errorf("routes on %s: %w", source.Name, err))
 		}
@@ -135,44 +176,52 @@ func (s Service) Sync(ctx context.Context) error {
 	return errors.Join(failures...)
 }
 
-func (s Service) syncNode(ctx context.Context, source nodemodel.Node, nodes []nodemodel.Node, policies []model.Policy, known map[string]bool) error {
+func (s *Service) syncNode(ctx context.Context, source nodemodel.Node, nodes []nodemodel.Node, policies []model.Policy, sets map[fileCode]rulefilesprovider.Data) error {
 	node, err := s.Nodes.Get(source.ID)
 	if err != nil {
 		return err
 	}
 
-	currentRules, err := node.RouteRules(ctx)
+	configs, err := s.Inbounds.ListInbounds(ctx, source.ID)
 	if err != nil {
 		return err
 	}
 
-	outbounds, err := node.Outbounds(ctx)
+	var userTags []string
+
+	for _, config := range configs {
+		if config.Network == nodemodel.InboundNetworkUsers {
+			userTags = append(userTags, config.Tag)
+		}
+	}
+
+	outbounds, err := node.XrayOutbounds(ctx)
 	if err != nil {
 		return err
 	}
 
 	available := make(map[string]bool, len(outbounds))
 	for _, outbound := range outbounds {
-		available[outbound.GetTag()] = true
+		available[outbound.Tag] = true
 	}
 
-	var desired []*api.RouteRule
+	desired := &router.Config{}
+	// Mesh arrivals and the default subscription must always exit from this node.
+	desired.Rule = append(desired.Rule,
+		&router.RoutingRule{RuleTag: "vpn:mesh", TargetTag: &router.RoutingRule_Tag{Tag: "direct"}, InboundTag: []string{"mesh:" + source.ID}},
+		&router.RoutingRule{RuleTag: "vpn:default", TargetTag: &router.RoutingRule_Tag{Tag: "direct"}, InboundTag: []string{"default:" + source.ID}},
+	)
 
-	var dnsRoutes []*api.DNSRoute
-
-	var failures []error
-
-	// Rule-set matches must precede the catch-all route on each source node.
+	// Set matches precede the catch-all routes, just as in the old policy engine.
 	for _, hasSet := range []bool{true, false} {
 		for _, policy := range policies {
-			if !policy.Active || (policy.RuleSet != "") != hasSet || !matches(policy.Source, source.Country) {
+			if !policy.Active || (policy.RuleFile != "") != hasSet || !matches(policy.Source, source.Country) {
 				continue
 			}
 
 			target, ok := selectNode(nodes, policy, source.ID)
 			if !ok {
-				failures = append(failures, fmt.Errorf("%s: no target node", policy.Tag))
-				continue
+				return fmt.Errorf("%s: no target node", policy.Tag)
 			}
 
 			outbound := "direct"
@@ -181,100 +230,63 @@ func (s Service) syncNode(ctx context.Context, source nodemodel.Node, nodes []no
 			}
 
 			if !available[outbound] {
-				failures = append(failures, fmt.Errorf("%s: outbound %s unavailable", policy.Tag, outbound))
-				continue
+				return fmt.Errorf("%s: outbound %s unavailable", policy.Tag, outbound)
 			}
 
-			rule := &api.RouteRule{Action: api.RouteAction_ROUTE_ACTION_ROUTE, Outbound: outbound}
 			if hasSet {
-				rule.RuleSets = []string{policy.RuleSet}
-			} else if slices.ContainsFunc(desired, func(existing *api.RouteRule) bool { return proto.Equal(existing, rule) }) {
-				continue
-			}
+				data := sets[fileCode{policy.RuleFile, policy.RuleCode}]
 
-			desired = append(desired, rule)
-			dnsRoutes = append(dnsRoutes, &api.DNSRoute{
-				RuleSet:  policy.RuleSet,
-				Outbound: outbound,
-			})
-		}
-	}
+				tag := fmt.Sprintf("vpn:policy:%d:%s", len(policy.Tag), policy.Tag)
+				if len(data.Domains) > 0 {
+					desired.Rule = append(desired.Rule, &router.RoutingRule{RuleTag: tag + ":domain", TargetTag: &router.RoutingRule_Tag{Tag: outbound}, Domain: data.Domains})
+				}
 
-	var indices []int
-
-	var existing []*api.RouteRule
-
-	for i, rule := range currentRules {
-		if managedRule(rule, known) {
-			indices = append(indices, i)
-			existing = append(existing, rule)
-		}
-	}
-
-	if !equalRules(existing, desired) {
-		for i := len(indices) - 1; i >= 0; i-- {
-			err = node.RemoveRouteRule(ctx, uint32(indices[i]))
-			if err != nil {
-				return err
-			}
-		}
-
-		for _, rule := range desired {
-			var tag *string
-			if len(rule.RuleSets) > 0 {
-				tag = &rule.RuleSets[0]
-			}
-
-			err = node.AddRouteRule(ctx, nodemodel.RouteRule{
-				RuleSet:  tag,
-				Action:   nodemodel.RouteActionRoute,
-				Outbound: rule.Outbound,
-			})
-			if err != nil {
-				return err
+				if len(data.IPs) > 0 {
+					desired.Rule = append(desired.Rule, &router.RoutingRule{RuleTag: tag + ":ip", TargetTag: &router.RoutingRule_Tag{Tag: outbound}, Ip: data.IPs})
+				}
+			} else {
+				if len(userTags) > 0 {
+					tag := fmt.Sprintf("vpn:policy:%d:%s", len(policy.Tag), policy.Tag)
+					desired.Rule = append(desired.Rule, &router.RoutingRule{RuleTag: tag, TargetTag: &router.RoutingRule_Tag{Tag: outbound}, InboundTag: userTags})
+				}
 			}
 		}
 	}
 
-	managedSets := make([]string, 0, len(known))
-	for tag := range known {
-		managedSets = append(managedSets, tag)
-	}
-
-	err = node.SyncDNSRoutes(ctx, dnsRoutes, managedSets)
+	current, err := node.XrayRules(ctx)
 	if err != nil {
-		failures = append(failures, err)
+		return err
 	}
 
-	return errors.Join(failures...)
-}
-
-func managedRule(rule *api.RouteRule, known map[string]bool) bool {
-	if rule.GetAction() != api.RouteAction_ROUTE_ACTION_ROUTE || len(rule.GetUsers()) != 0 {
-		return false
+	encoded, err := proto.Marshal(desired)
+	if err != nil {
+		return err
 	}
 
-	for _, tag := range rule.GetRuleSets() {
-		if known[tag] {
-			return true
+	sum := sha256.Sum256(encoded)
+	if sum == s.applied[source.ID] && len(current) == len(desired.Rule) {
+		matched := true
+
+		for i, rule := range current {
+			if rule.RuleTag != desired.Rule[i].RuleTag || rule.Tag != desired.Rule[i].GetTag() {
+				matched = false
+				break
+			}
+		}
+
+		if matched {
+			return nil
 		}
 	}
 
-	return len(rule.GetRuleSets()) == 0 && strings.HasPrefix(rule.GetOutbound(), "mesh:")
-}
-
-func equalRules(a, b []*api.RouteRule) bool {
-	if len(a) != len(b) {
-		return false
+	err = node.XraySetRules(ctx, desired)
+	if err != nil {
+		return err
 	}
 
-	for i := range a {
-		if !proto.Equal(a[i], b[i]) {
-			return false
-		}
-	}
+	s.applied[source.ID] = sum
 
-	return true
+	return nil
 }
 
 func selectNode(nodes []nodemodel.Node, policy model.Policy, sourceID string) (nodemodel.Node, bool) {
@@ -301,7 +313,7 @@ func matches(f model.Filter, country string) bool {
 		(f.NotCountry == "" || !strings.EqualFold(f.NotCountry, country))
 }
 
-func (s Service) checkRuleSet(ctx context.Context, tag string) error {
+func (s Service) checkRuleFile(ctx context.Context, tag string) error {
 	if tag == "" {
 		return nil
 	}
@@ -312,7 +324,7 @@ func (s Service) checkRuleSet(ctx context.Context, tag string) error {
 	}
 
 	if !set.Active {
-		return errors.New("rule set is deleted")
+		return errors.New("rule files are deleted")
 	}
 
 	return nil
@@ -321,6 +333,10 @@ func (s Service) checkRuleSet(ctx context.Context, tag string) error {
 func validatePolicy(p model.Policy) error {
 	if p.Tag == "" || len(p.Tag) > 120 || strings.ContainsAny(p.Tag, " \t\n") {
 		return errors.New("route tag required without whitespace (max 120 characters)")
+	}
+
+	if (p.RuleFile == "") != (p.RuleCode == "") || len(p.RuleCode) > 120 || strings.ContainsAny(p.RuleCode, " \t\n") {
+		return errors.New("rule_file and rule_code must both be set or both be empty (max 120 characters)")
 	}
 
 	for _, f := range []model.Filter{p.Source, p.Target} {

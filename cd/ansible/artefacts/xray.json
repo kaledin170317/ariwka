@@ -7,8 +7,12 @@
     "listen": "127.0.0.1:10085",
     "services": [
       "HandlerService",
+      "RoutingService",
       "ReflectionService"
     ]
+  },
+  "routing": {
+    "domainStrategy": "IPIfNonMatch"
   },
   "outbounds": [
     {

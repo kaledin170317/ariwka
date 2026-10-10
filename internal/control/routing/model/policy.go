@@ -6,9 +6,10 @@ type Filter struct {
 }
 
 type Policy struct {
-	Tag     string
-	RuleSet string
-	Source  Filter
-	Target  Filter
-	Active  bool
+	Tag      string
+	RuleFile string
+	RuleCode string
+	Source   Filter
+	Target   Filter
+	Active   bool
 }

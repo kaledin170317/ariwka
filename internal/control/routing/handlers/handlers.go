@@ -48,8 +48,9 @@ func (h Handler) List(ctx context.Context, _ *api.ListRoutePoliciesRequest) (*ap
 	resp := &api.ListRoutePoliciesResponse{Policies: make([]*api.RoutePolicy, 0, len(policies))}
 	for _, p := range policies {
 		resp.Policies = append(resp.Policies, &api.RoutePolicy{
-			Tag:     p.Tag,
-			RuleSet: p.RuleSet,
+			Tag:      p.Tag,
+			RuleFile: p.RuleFile,
+			RuleCode: p.RuleCode,
 			Source: &api.NodeFilter{
 				Country:    p.Source.Country,
 				NotCountry: p.Source.NotCountry,
@@ -66,8 +67,9 @@ func (h Handler) List(ctx context.Context, _ *api.ListRoutePoliciesRequest) (*ap
 
 func policyFromProto(p *api.RoutePolicy) model.Policy {
 	return model.Policy{
-		Tag:     p.GetTag(),
-		RuleSet: p.GetRuleSet(),
+		Tag:      p.GetTag(),
+		RuleFile: p.GetRuleFile(),
+		RuleCode: p.GetRuleCode(),
 		Source: model.Filter{
 			Country:    p.GetSource().GetCountry(),
 			NotCountry: p.GetSource().GetNotCountry(),

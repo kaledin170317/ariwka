@@ -17,10 +17,10 @@ var builder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 func (r Postgres) Create(ctx context.Context, p model.Policy) error {
 	result, err := builder.
 		Insert("routing_policies").
-		Columns("tag", "rule_set", "source_country", "source_not_country", "target_country", "target_not_country", "active").
-		Values(p.Tag, p.RuleSet, p.Source.Country, p.Source.NotCountry, p.Target.Country, p.Target.NotCountry, true).
+		Columns("tag", "rule_file", "rule_code", "source_country", "source_not_country", "target_country", "target_not_country", "active").
+		Values(p.Tag, p.RuleFile, p.RuleCode, p.Source.Country, p.Source.NotCountry, p.Target.Country, p.Target.NotCountry, true).
 		Suffix(`ON CONFLICT (tag) DO UPDATE SET
-			rule_set = EXCLUDED.rule_set,
+			rule_file = EXCLUDED.rule_file, rule_code = EXCLUDED.rule_code,
 			source_country = EXCLUDED.source_country, source_not_country = EXCLUDED.source_not_country,
 			target_country = EXCLUDED.target_country, target_not_country = EXCLUDED.target_not_country, active = TRUE
 			WHERE NOT routing_policies.active`).
@@ -45,7 +45,8 @@ func (r Postgres) Create(ctx context.Context, p model.Policy) error {
 func (r Postgres) Update(ctx context.Context, p model.Policy) error {
 	result, err := builder.
 		Update("routing_policies").
-		Set("rule_set", p.RuleSet).
+		Set("rule_file", p.RuleFile).
+		Set("rule_code", p.RuleCode).
 		Set("source_country", p.Source.Country).
 		Set("source_not_country", p.Source.NotCountry).
 		Set("target_country", p.Target.Country).
@@ -94,7 +95,7 @@ func (r Postgres) Delete(ctx context.Context, tag string) error {
 
 func (r Postgres) List(ctx context.Context) ([]model.Policy, error) {
 	rows, err := builder.
-		Select("tag", "rule_set", "source_country", "source_not_country", "target_country", "target_not_country", "active").
+		Select("tag", "rule_file", "rule_code", "source_country", "source_not_country", "target_country", "target_not_country", "active").
 		From("routing_policies").
 		OrderBy("tag").
 		RunWith(r.DB).
@@ -109,7 +110,7 @@ func (r Postgres) List(ctx context.Context) ([]model.Policy, error) {
 	for rows.Next() {
 		var p model.Policy
 
-		err = rows.Scan(&p.Tag, &p.RuleSet,
+		err = rows.Scan(&p.Tag, &p.RuleFile, &p.RuleCode,
 			&p.Source.Country, &p.Source.NotCountry, &p.Target.Country, &p.Target.NotCountry, &p.Active)
 		if err != nil {
 			return nil, err

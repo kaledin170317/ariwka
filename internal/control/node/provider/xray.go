@@ -118,6 +118,9 @@ func (n *Node) xrayInbound(ctx context.Context, c model.InboundConfig) (model.In
 
 func (n *Node) XrayAddInbound(ctx context.Context, c model.InboundConfig) (model.Inbound, error) {
 	receiver := &proxyman.ReceiverConfig{PortList: &xnet.PortList{Range: []*xnet.PortRange{{From: uint32(c.Port), To: uint32(c.Port)}}}}
+	if c.Network == model.InboundNetworkUsers {
+		receiver.SniffingSettings = userSniffing()
+	}
 
 	var settings proto.Message
 
@@ -170,6 +173,65 @@ func (n *Node) XrayAddInbound(ctx context.Context, c model.InboundConfig) (model
 	}
 
 	return n.xrayInbound(ctx, c)
+}
+
+func userSniffing() *proxyman.SniffingConfig {
+	return &proxyman.SniffingConfig{Enabled: true, DestinationOverride: []string{"http", "tls", "quic"}, RouteOnly: true}
+}
+
+// XrayEnableSniffing upgrades an existing user inbound while retaining its users.
+func (n *Node) XrayEnableSniffing(ctx context.Context, tag string) error {
+	response, err := n.xray.ListInbounds(ctx, &command.ListInboundsRequest{})
+	if err != nil {
+		return err
+	}
+
+	for _, inbound := range response.Inbounds {
+		if inbound.Tag != tag {
+			continue
+		}
+
+		receiver := new(proxyman.ReceiverConfig)
+
+		err = proto.Unmarshal(inbound.GetReceiverSettings().GetValue(), receiver)
+		if err != nil {
+			return err
+		}
+
+		if proto.Equal(receiver.SniffingSettings, userSniffing()) {
+			return nil
+		}
+
+		users, err := n.xray.GetInboundUsers(ctx, &command.GetInboundUserRequest{Tag: tag})
+		if err != nil {
+			return err
+		}
+
+		receiver.SniffingSettings = userSniffing()
+		inbound.ReceiverSettings = serial.ToTypedMessage(receiver)
+
+		err = n.XrayRemoveInbound(ctx, tag)
+		if err != nil {
+			return err
+		}
+
+		_, err = n.xray.AddInbound(ctx, &command.AddInboundRequest{Inbound: inbound})
+		if err != nil {
+			return err
+		}
+
+		for _, user := range users.Users {
+			_, err = n.xray.AlterInbound(ctx, &command.AlterInboundRequest{Tag: tag,
+				Operation: serial.ToTypedMessage(&command.AddUserOperation{User: user})})
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("inbound %s not found", tag)
 }
 
 func (n *Node) XrayRemoveInbound(ctx context.Context, tag string) error {

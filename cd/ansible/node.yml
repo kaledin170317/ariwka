@@ -98,8 +98,8 @@
           changed_when: old_sing_box.rc == 0
           failed_when: false
 
-        - name: Start Xray container
-          ansible.builtin.command: docker-compose -f /etc/xray/compose.yml up -d
+        - name: Recreate Xray container with current config
+          ansible.builtin.command: docker-compose -f /etc/xray/compose.yml up -d --force-recreate
 
     - name: Deploy
       tags:

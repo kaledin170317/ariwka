@@ -20,7 +20,8 @@ message RoutePolicy {
   string tag = 1;
   NodeFilter source = 5;
   NodeFilter target = 6;
-  string rule_set = 7;
+  string rule_file = 7;
+  string rule_code = 8;
 }
 
 message CreateRoutePolicyRequest { RoutePolicy policy = 1; }
