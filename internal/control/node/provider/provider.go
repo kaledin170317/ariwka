@@ -9,6 +9,7 @@ import (
 
 	"github.com/xtls/xray-core/app/proxyman/command"
 	routercommand "github.com/xtls/xray-core/app/router/command"
+	statscommand "github.com/xtls/xray-core/app/stats/command"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -24,6 +25,7 @@ type Node struct {
 	model.Node
 	xray      command.HandlerServiceClient
 	xrayRoute routercommand.RoutingServiceClient
+	xrayStats statscommand.StatsServiceClient
 	xrayConn  *grpc.ClientConn
 }
 
@@ -75,6 +77,7 @@ func (p *Provider) Add(node model.Node) error {
 		Node:      node,
 		xray:      command.NewHandlerServiceClient(xrayConn),
 		xrayRoute: routercommand.NewRoutingServiceClient(xrayConn),
+		xrayStats: statscommand.NewStatsServiceClient(xrayConn),
 		xrayConn:  xrayConn,
 	}
 

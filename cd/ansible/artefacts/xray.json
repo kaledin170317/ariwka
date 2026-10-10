@@ -8,11 +8,21 @@
     "services": [
       "HandlerService",
       "RoutingService",
+      "StatsService",
       "ReflectionService"
     ]
   },
   "routing": {
     "domainStrategy": "IPIfNonMatch"
+  },
+  "stats": {},
+  "policy": {
+    "levels": {
+      "0": {
+        "statsUserUplink": true,
+        "statsUserDownlink": true
+      }
+    }
   },
   "outbounds": [
     {

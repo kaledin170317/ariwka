@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"regexp"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	statsmodel "vpn/internal/control/stats/model"
 	"vpn/internal/control/user/model"
 )
 
@@ -23,9 +25,15 @@ type Users interface {
 	Get(context.Context, string) (model.User, error)
 }
 
+type Stats interface {
+	Device(context.Context, string) (statsmodel.Usage, error)
+	User(context.Context, string, bool) (statsmodel.Usage, error)
+}
+
 type Handler struct {
 	Profiles Profiles
 	Users    Users
+	Stats    Stats
 	Metadata Metadata
 	Default  bool
 }
@@ -45,6 +53,7 @@ func subscriptionURL(userID, network string) (string, error) {
 
 type DeviceHandler struct {
 	Profiles Profiles
+	Stats    Stats
 	Metadata Metadata
 }
 
@@ -78,9 +87,15 @@ func (h DeviceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	usage, err := h.Stats.Device(r.Context(), id)
+	if err != nil {
+		http.Error(w, "failed to load traffic", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("X-HWID-Active", "true")
 	w.Header().Set("Subscription-Always-HWID-Enable", "1")
-	writeSubscription(w, h.Metadata, connections)
+	writeSubscription(w, h.Metadata, connections, usage)
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -109,13 +124,22 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeSubscription(w, h.Metadata, connections)
+	usage, err := h.Stats.User(r.Context(), userID, h.Default)
+	if err != nil {
+		http.Error(w, "failed to load traffic", http.StatusInternalServerError)
+		return
+	}
+
+	writeSubscription(w, h.Metadata, connections, usage)
 }
 
-func writeSubscription(w http.ResponseWriter, metadata Metadata, connections []string) {
+func writeSubscription(w http.ResponseWriter, metadata Metadata, connections []string, usage statsmodel.Usage) {
+	info := fmt.Sprintf("upload=%d; download=%d; total=0", usage.Uploaded, usage.Downloaded)
+	w.Header().Set("Subscription-Userinfo", info)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 
-	lines := append(metadata.Lines(), connections...)
+	lines := append(metadata.Lines(), "#subscription-userinfo: "+info)
+	lines = append(lines, connections...)
 	_, _ = w.Write([]byte(strings.Join(lines, "\n") + "\n"))
 }

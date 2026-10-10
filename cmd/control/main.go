@@ -35,6 +35,8 @@ import (
 	rulefilesprovider "vpn/internal/control/rulefiles/provider"
 	rulefilesrepo "vpn/internal/control/rulefiles/repo"
 	rulefilesservice "vpn/internal/control/rulefiles/service"
+	statsrepo "vpn/internal/control/stats/repo"
+	statsservice "vpn/internal/control/stats/service"
 	userhandlers "vpn/internal/control/user/handlers"
 	userrepo "vpn/internal/control/user/repo"
 	userservice "vpn/internal/control/user/service"
@@ -78,6 +80,7 @@ func main() {
 	sets := rulefilesservice.Service{Repo: setsDB, Mu: stateMu}
 	routes := &routingservice.Service{Repo: routingrepo.Postgres{DB: db}, Nodes: nodes, Inbounds: inboundsDB,
 		Sets: setsDB, Data: rulefilesprovider.New(), Mu: stateMu}
+	stats := &statsservice.Service{Repo: statsrepo.Postgres{DB: db}, Nodes: nodes}
 
 	go func() {
 		for {
@@ -87,10 +90,11 @@ func main() {
 			meshErr := nodes.SyncMesh(ctx)
 			routeErr := routes.Sync(ctx)
 			userErr := configs.SyncUsers(ctx)
+			statsErr := stats.Sync(ctx)
 
 			cancel()
 
-			syncErr := errors.Join(defaultErr, inboundErr, meshErr, routeErr, userErr)
+			syncErr := errors.Join(defaultErr, inboundErr, meshErr, routeErr, userErr, statsErr)
 			if syncErr != nil {
 				log.Printf("node sync: %v", syncErr)
 			}
@@ -116,7 +120,7 @@ func main() {
 	reflection.Register(grpcServer)
 
 	go func() {
-		log.Fatal(happ.Serve(os.Getenv("SUBSCRIPTION_DOMAIN"), configs, users))
+		log.Fatal(happ.Serve(os.Getenv("SUBSCRIPTION_DOMAIN"), configs, users, stats))
 	}()
 
 	listener, err := net.Listen("tcp", ":9092")
