@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"context"
 	"errors"
 	"net"
 	"slices"
@@ -10,21 +9,6 @@ import (
 	"vpn/internal/control/node/model"
 	"vpn/pkg/link"
 )
-
-func (n *Node) Config(ctx context.Context, configID, tag string) (string, error) {
-	inbounds, err := n.Inbounds(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	for _, inbound := range inbounds {
-		if inbound.Tag == tag {
-			return n.Link(inbound, configID)
-		}
-	}
-
-	return "", errors.New("config is missing on node " + n.Name)
-}
 
 func (n *Node) Link(inbound model.Inbound, userTag string) (string, error) {
 	name := inbound.Tag

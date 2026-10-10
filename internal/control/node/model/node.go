@@ -2,9 +2,6 @@ package model
 
 //go:generate go tool go-enum --marshal --output-suffix=.enum.gen
 
-// ENUM(reject=1, route, hijack-dns, sniff)
-type RouteAction int32
-
 // ENUM(hysteria2=1, vless)
 type InboundType int32
 
@@ -88,11 +85,4 @@ type TLS struct {
 type InboundUser struct {
 	Name     string
 	Password string
-}
-
-type RouteRule struct {
-	User     *string
-	RuleSet  *string
-	Action   RouteAction
-	Outbound string
 }
