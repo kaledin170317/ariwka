@@ -12,6 +12,7 @@ func Serve(domain string, profiles Profiles, users Users) error {
 	mux := http.NewServeMux()
 	mux.Handle("GET /happ/sub/{userID}", Handler{Profiles: profiles, Users: users, Metadata: subMetadata})
 	mux.Handle("GET /happ/default/{userID}", Handler{Profiles: profiles, Users: users, Default: true, Metadata: defaultMetadata})
+	mux.Handle("GET /happ/device/{deviceID}", DeviceHandler{Profiles: profiles, Metadata: subMetadata})
 
 	manager := &autocert.Manager{
 		Prompt:     autocert.AcceptTOS,

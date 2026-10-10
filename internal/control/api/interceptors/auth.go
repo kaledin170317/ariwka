@@ -47,6 +47,9 @@ var methods = map[string]AccessLevel{
 	api.ConfigService_GetProfile_FullMethodName:                 AccessLevelUser,
 	api.ConfigService_GetSubscriptionLink_FullMethodName:        AccessLevelUser,
 	api.ConfigService_GetDefaultSubscriptionLink_FullMethodName: AccessLevelUser,
+	api.ConfigService_CreateMyDevice_FullMethodName:             AccessLevelUser,
+	api.ConfigService_ListMyDevices_FullMethodName:              AccessLevelUser,
+	api.ConfigService_DeleteMyDevice_FullMethodName:             AccessLevelUser,
 }
 
 type Users interface {

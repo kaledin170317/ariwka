@@ -6,6 +6,14 @@ type Profile struct {
 	NodeID   string
 	Inbound  string
 	Password string
+	DeviceID string
+}
+
+type Device struct {
+	ID     string
+	UserID string
+	Name   string
+	HWID   string
 }
 
 type Connection struct {

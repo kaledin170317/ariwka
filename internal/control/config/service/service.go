@@ -24,6 +24,12 @@ type Repository interface {
 	ListByInbound(context.Context, string) ([]model.Profile, error)
 	SavePassword(context.Context, string, string) error
 	Delete(context.Context, string, string) error
+	CreateDevice(context.Context, model.Device) error
+	GetDevice(context.Context, string) (model.Device, error)
+	ListDevices(context.Context, string) ([]model.Device, error)
+	DeleteDevice(context.Context, string, string) error
+	ListByDevice(context.Context, string) ([]model.Profile, error)
+	BindDevice(context.Context, string, string) (bool, error)
 }
 
 type Nodes interface {
@@ -123,57 +129,7 @@ func (s Service) Delete(ctx context.Context, userID, id string) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
-	profile, err := s.Repo.Get(ctx, userID, id)
-	if err != nil {
-		return err
-	}
-
-	node, err := s.Nodes.Get(profile.NodeID)
-	if err != nil {
-		return err
-	}
-
-	inbounds, err := s.Inbounds.Inbounds(ctx, profile.NodeID)
-	if err != nil {
-		return err
-	}
-
-	for _, inbound := range inbounds {
-		if inbound.Tag == profile.Inbound {
-			exists := false
-
-			if h := inbound.Hysteria2; h != nil {
-				for _, user := range h.Users {
-					if user.Name == id {
-						exists = true
-						break
-					}
-				}
-			} else if v := inbound.Vless; v != nil {
-				for _, user := range v.UserDetails {
-					if user.Tag == id {
-						exists = true
-						break
-					}
-				}
-
-				if len(v.UserDetails) == 0 {
-					exists = slices.Contains(v.Users, id)
-				}
-			}
-
-			if exists {
-				err = node.XrayRemoveUser(ctx, profile.Inbound, id)
-				if err != nil {
-					return err
-				}
-			}
-
-			break
-		}
-	}
-
-	return s.Repo.Delete(ctx, userID, id)
+	return s.deleteProfile(ctx, userID, id)
 }
 
 func (s Service) SyncUsers(ctx context.Context) error {
@@ -199,6 +155,21 @@ func (s Service) SyncUsers(ctx context.Context) error {
 		}
 	}
 
+	for _, user := range users {
+		devices, listErr := s.Repo.ListDevices(ctx, user.ID)
+		if listErr != nil {
+			failures = append(failures, listErr)
+			continue
+		}
+
+		for _, device := range devices {
+			err = s.syncDevice(ctx, device)
+			if err != nil {
+				failures = append(failures, fmt.Errorf("device %s: %w", device.ID, err))
+			}
+		}
+	}
+
 	return errors.Join(failures...)
 }
 
@@ -220,7 +191,7 @@ func (s Service) GetSubscription(ctx context.Context, userID string, defaultNetw
 
 	connections := make([]string, 0, len(profiles))
 	for _, profile := range profiles {
-		if strings.HasPrefix(profile.Inbound, "default:") != defaultNetwork {
+		if profile.DeviceID != "" || strings.HasPrefix(profile.Inbound, "default:") != defaultNetwork {
 			continue
 		}
 
@@ -261,6 +232,10 @@ func (s Service) GetProfiles(ctx context.Context, userID string) ([]model.Connec
 
 	connections := make([]model.Connection, 0, len(profiles))
 	for _, p := range profiles {
+		if p.DeviceID != "" {
+			continue
+		}
+
 		node, err := s.Nodes.Get(p.NodeID)
 		if err != nil {
 			return nil, err
@@ -286,6 +261,10 @@ func (s Service) GetProfile(ctx context.Context, userID, id string) (string, err
 	p, err := s.Repo.Get(ctx, userID, id)
 	if err != nil {
 		return "", err
+	}
+
+	if p.DeviceID != "" {
+		return "", errors.New("this profile belongs to a device")
 	}
 
 	node, err := s.Nodes.Get(p.NodeID)

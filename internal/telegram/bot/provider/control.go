@@ -47,6 +47,13 @@ type Profile struct {
 	Connection string
 }
 
+type Device struct {
+	ID   string
+	Name string
+	URL  string
+	HWID string
+}
+
 func Open(address, username, password string) (Control, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -118,6 +125,34 @@ func (u User) DefaultSubscriptionLink(ctx context.Context) (string, error) {
 	}
 
 	return resp.GetUrl(), nil
+}
+
+func (u User) Devices(ctx context.Context) ([]Device, error) {
+	resp, err := u.control.configs.ListMyDevices(u.context(ctx), &api.ListDevicesRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	devices := make([]Device, 0, len(resp.GetDevices()))
+	for _, d := range resp.GetDevices() {
+		devices = append(devices, Device{ID: d.GetId(), Name: d.GetName(), URL: d.GetUrl(), HWID: d.GetHwid()})
+	}
+
+	return devices, nil
+}
+
+func (u User) CreateDevice(ctx context.Context, name string) (Device, error) {
+	d, err := u.control.configs.CreateMyDevice(u.context(ctx), &api.CreateDeviceRequest{Name: name})
+	if err != nil {
+		return Device{}, err
+	}
+
+	return Device{ID: d.GetId(), Name: d.GetName(), URL: d.GetUrl()}, nil
+}
+
+func (u User) DeleteDevice(ctx context.Context, id string) error {
+	_, err := u.control.configs.DeleteMyDevice(u.context(ctx), &api.DeleteDeviceRequest{Id: id})
+	return err
 }
 
 func (u User) Nodes(ctx context.Context) ([]Node, error) {

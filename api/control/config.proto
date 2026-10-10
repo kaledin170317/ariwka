@@ -13,6 +13,9 @@ service ConfigService {
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
   rpc GetSubscriptionLink(GetSubscriptionLinkRequest) returns (GetSubscriptionLinkResponse);
   rpc GetDefaultSubscriptionLink(GetSubscriptionLinkRequest) returns (GetSubscriptionLinkResponse);
+  rpc CreateMyDevice(CreateDeviceRequest) returns (Device);
+  rpc ListMyDevices(ListDevicesRequest) returns (ListDevicesResponse);
+  rpc DeleteMyDevice(DeleteDeviceRequest) returns (DeleteDeviceResponse);
 }
 
 message CreateMyProfileRequest {
@@ -54,3 +57,15 @@ message GetProfileResponse { string connection = 1; }
 
 message GetSubscriptionLinkRequest {}
 message GetSubscriptionLinkResponse { string url = 1; }
+
+message CreateDeviceRequest { string name = 1; }
+message ListDevicesRequest {}
+message ListDevicesResponse { repeated Device devices = 1; }
+message DeleteDeviceRequest { string id = 1; }
+message DeleteDeviceResponse {}
+message Device {
+  string id = 1;
+  string name = 2;
+  string url = 3;
+  string hwid = 4;
+}

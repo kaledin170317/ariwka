@@ -15,6 +15,7 @@ func Menu() screens.View {
 		Buttons: [][]screens.Button{
 			{{Text: "Список профилей", Data: "p:list:0"}},
 			{{Text: "Создать профиль", Data: "p:create"}},
+			{{Text: "Устройства (подписка с маршрутизацией)", Data: "p:devices"}},
 			{{Text: "Подписка Happ", Data: "p:subscription"}},
 			{{Text: "Подписка без маршрутизации", Data: "p:default"}},
 			{{Text: "← Главная", Data: "home"}},

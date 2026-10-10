@@ -96,3 +96,47 @@ func (h Configs) GetDefaultSubscriptionLink(ctx context.Context, _ *api.GetSubsc
 
 	return &api.GetSubscriptionLinkResponse{Url: url}, nil
 }
+
+func (h Configs) CreateMyDevice(ctx context.Context, req *api.CreateDeviceRequest) (*api.Device, error) {
+	u, _ := usercontext.User(ctx)
+
+	device, err := h.Service.CreateDevice(ctx, u.ID, req.GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	url, err := happ.DeviceURL(device.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.Device{Id: device.ID, Name: device.Name, Url: url}, nil
+}
+
+func (h Configs) ListMyDevices(ctx context.Context, _ *api.ListDevicesRequest) (*api.ListDevicesResponse, error) {
+	u, _ := usercontext.User(ctx)
+
+	devices, err := h.Service.ListDevices(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &api.ListDevicesResponse{Devices: make([]*api.Device, 0, len(devices))}
+	for _, device := range devices {
+		url, urlErr := happ.DeviceURL(device.ID)
+		if urlErr != nil {
+			return nil, urlErr
+		}
+
+		resp.Devices = append(resp.Devices, &api.Device{Id: device.ID, Name: device.Name, Url: url, Hwid: device.HWID})
+	}
+
+	return resp, nil
+}
+
+func (h Configs) DeleteMyDevice(ctx context.Context, req *api.DeleteDeviceRequest) (*api.DeleteDeviceResponse, error) {
+	u, _ := usercontext.User(ctx)
+	err := h.Service.DeleteDevice(ctx, u.ID, req.GetId())
+
+	return &api.DeleteDeviceResponse{}, err
+}

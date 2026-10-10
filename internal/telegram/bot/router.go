@@ -103,6 +103,14 @@ func (b telegram) action(ctx context.Context, userID, chat, id int64, data strin
 		view, err = p.Subscription(requestCtx)
 	case data == "p:default":
 		view, err = p.DefaultSubscription(requestCtx)
+	case data == "p:devices":
+		view, err = p.Devices(requestCtx)
+	case data == "p:device:new":
+		view, err = p.CreateDevice(requestCtx)
+	case strings.HasPrefix(data, "p:device:delete:"):
+		view, err = p.DeleteDevice(requestCtx, strings.TrimPrefix(data, "p:device:delete:"))
+	case strings.HasPrefix(data, "p:device:"):
+		view, err = p.Device(requestCtx, strings.TrimPrefix(data, "p:device:"))
 	case strings.HasPrefix(data, "p:list:"):
 		page, parseErr := strconv.Atoi(strings.TrimPrefix(data, "p:list:"))
 		if parseErr != nil {
