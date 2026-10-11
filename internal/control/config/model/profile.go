@@ -10,10 +10,11 @@ type Profile struct {
 }
 
 type Device struct {
-	ID     string
-	UserID string
-	Name   string
-	HWID   string
+	ID             string
+	UserID         string
+	Name           string
+	HWID           string
+	DefaultNetwork bool
 }
 
 type Connection struct {

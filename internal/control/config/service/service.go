@@ -54,77 +54,6 @@ type Service struct {
 	Mu       *sync.Mutex
 }
 
-func (s Service) Create(ctx context.Context, userID, nodeID, inbound string) (string, string, error) {
-	s.Mu.Lock()
-	defer s.Mu.Unlock()
-
-	_, err := s.Users.Get(ctx, userID)
-	if err != nil {
-		return "", "", err
-	}
-
-	node, err := s.Nodes.Get(nodeID)
-	if err != nil {
-		return "", "", err
-	}
-
-	inbounds, err := s.Inbounds.Inbounds(ctx, nodeID)
-	if err != nil {
-		return "", "", err
-	}
-
-	var selected nodemodel.Inbound
-
-	for _, item := range inbounds {
-		if item.Tag == inbound && item.Network == nodemodel.InboundNetworkUsers {
-			selected = item
-			break
-		}
-	}
-
-	if selected.Tag == "" {
-		return "", "", fmt.Errorf("inbound %s not found", inbound)
-	}
-
-	id := uuid.NewString()
-
-	password := ""
-	if selected.Hysteria2 != nil {
-		password = rand.Text()
-	}
-
-	profile := model.Profile{
-		ID:       id,
-		UserID:   userID,
-		NodeID:   nodeID,
-		Inbound:  inbound,
-		Password: password,
-	}
-
-	err = s.Repo.Create(ctx, profile)
-	if err != nil {
-		return "", "", err
-	}
-
-	err = node.XrayAddUser(ctx, inbound, nodemodel.VlessUser{Tag: id, UUID: id}, password)
-	if err != nil {
-		_ = s.Repo.Delete(ctx, userID, id)
-		return "", "", err
-	}
-
-	selected, err = s.inbound(ctx, nodeID, inbound)
-	if err != nil {
-		return "", "", err
-	}
-
-	connection, err := node.Link(selected, id)
-	if err != nil {
-		return "", "", err
-	}
-
-	return id, connection, nil
-}
-
 func (s Service) Delete(ctx context.Context, userID, id string) error {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
@@ -376,7 +305,7 @@ func (s Service) syncNodeUsers(ctx context.Context, nodeID string, users []userm
 func (s Service) ensureDefaultProfiles(ctx context.Context, nodeID string, profiles []model.Profile, users []usermodel.User) ([]model.Profile, error) {
 	existing := make(map[string]bool, len(profiles))
 	for _, profile := range profiles {
-		if profile.NodeID == nodeID {
+		if profile.NodeID == nodeID && profile.DeviceID == "" {
 			existing[profile.UserID] = true
 		}
 	}

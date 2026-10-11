@@ -58,7 +58,10 @@ message GetProfileResponse { string connection = 1; }
 message GetSubscriptionLinkRequest {}
 message GetSubscriptionLinkResponse { string url = 1; }
 
-message CreateDeviceRequest { string name = 1; }
+message CreateDeviceRequest {
+  string name = 1;
+  bool default_network = 2;
+}
 message ListDevicesRequest {}
 message ListDevicesResponse { repeated Device devices = 1; }
 message DeleteDeviceRequest { string id = 1; }
@@ -68,4 +71,5 @@ message Device {
   string name = 2;
   string url = 3;
   string hwid = 4;
+  bool default_network = 5;
 }

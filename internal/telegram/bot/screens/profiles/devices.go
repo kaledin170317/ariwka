@@ -16,27 +16,40 @@ func (s Service) Devices(ctx context.Context) (screens.View, error) {
 
 	rows := make([][]screens.Button, 0, len(devices)+2)
 	for _, device := range devices {
-		rows = append(rows, []screens.Button{{Text: device.Name, Data: "p:device:" + device.ID}})
+		mode := "с маршрутизацией"
+		if device.DefaultNetwork {
+			mode = "без маршрутизации"
+		}
+
+		rows = append(rows, []screens.Button{{Text: device.Name + " · " + mode, Data: "p:device:" + device.ID}})
 	}
 
-	rows = append(rows, []screens.Button{{Text: "Добавить устройство", Data: "p:device:new"}})
+	rows = append(rows, []screens.Button{{Text: "Создать конфиг", Data: "p:create"}})
 	rows = append(rows, []screens.Button{{Text: "← Профили", Data: "profiles"}})
 
-	return screens.View{Text: "Отдельная подписка и ключи на каждом устройстве. Выбери устройство:", Buttons: rows}, nil
+	return screens.View{Text: "Конфиги устройств (каждый содержит все серверы):", Buttons: rows}, nil
 }
 
-func (s Service) CreateDevice(ctx context.Context) (screens.View, error) {
+func CreateMode() screens.View {
+	return screens.View{Text: "Создать конфиг. Выбери режим сети:", Buttons: [][]screens.Button{
+		{{Text: "С маршрутизацией", Data: "p:device:new:routed"}},
+		{{Text: "Без маршрутизации", Data: "p:device:new:default"}},
+		{{Text: "← Конфиги", Data: "p:devices"}},
+	}}
+}
+
+func (s Service) CreateDevice(ctx context.Context, defaultNetwork bool) (screens.View, error) {
 	devices, err := s.User.Devices(ctx)
 	if err != nil {
 		return screens.View{}, err
 	}
 
-	device, err := s.User.CreateDevice(ctx, "Устройство "+strconv.Itoa(len(devices)+1))
+	device, err := s.User.CreateDevice(ctx, "Конфиг "+strconv.Itoa(len(devices)+1), defaultNetwork)
 	if err != nil {
 		return screens.View{}, err
 	}
 
-	return deviceView(device.Name, device.URL, device.ID, device.HWID), nil
+	return deviceView(device.Name, device.URL, device.ID, device.HWID, device.DefaultNetwork), nil
 }
 
 func (s Service) Device(ctx context.Context, id string) (screens.View, error) {
@@ -47,7 +60,7 @@ func (s Service) Device(ctx context.Context, id string) (screens.View, error) {
 
 	for _, device := range devices {
 		if device.ID == id {
-			return deviceView(device.Name, device.URL, device.ID, device.HWID), nil
+			return deviceView(device.Name, device.URL, device.ID, device.HWID, device.DefaultNetwork), nil
 		}
 	}
 
@@ -63,14 +76,19 @@ func (s Service) DeleteDevice(ctx context.Context, id string) (screens.View, err
 	return s.Devices(ctx)
 }
 
-func deviceView(name, url, id, hwid string) screens.View {
+func deviceView(name, url, id, hwid string, defaultNetwork bool) screens.View {
 	status := "Ожидает первого подключения"
 	if hwid != "" {
 		status = "Привязано к HWID: " + html.EscapeString(hwid)
 	}
 
+	mode := "с маршрутизацией"
+	if defaultNetwork {
+		mode = "без маршрутизации"
+	}
+
 	return screens.View{
-		Text: "Подписка для «" + html.EscapeString(name) + "» (все серверы с маршрутизацией):\n<code>" + html.EscapeString(url) + "</code>\n" + status,
+		Text: "Конфиг «" + html.EscapeString(name) + "» (все серверы " + mode + "):\n<code>" + html.EscapeString(url) + "</code>\n" + status,
 		Buttons: [][]screens.Button{
 			{{Text: "Удалить устройство", Data: "p:device:delete:" + id}},
 			{{Text: "← Устройства", Data: "p:devices"}},

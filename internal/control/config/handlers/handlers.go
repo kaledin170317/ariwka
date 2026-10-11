@@ -3,6 +3,9 @@ package handlers
 import (
 	"context"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	api "vpn/gen/control"
 	"vpn/internal/control/config/service"
 	"vpn/internal/control/happ"
@@ -14,23 +17,12 @@ type Configs struct {
 	Service service.Service
 }
 
-func (h Configs) CreateMyProfile(ctx context.Context, req *api.CreateMyProfileRequest) (*api.CreateProfileResponse, error) {
-	u, _ := usercontext.User(ctx)
-	id, connection, err := h.Service.Create(ctx, u.ID, req.GetNodeId(), req.GetInbound())
-
-	return &api.CreateProfileResponse{
-		Id:         id,
-		Connection: connection,
-	}, err
+func (h Configs) CreateMyProfile(context.Context, *api.CreateMyProfileRequest) (*api.CreateProfileResponse, error) {
+	return nil, status.Error(codes.FailedPrecondition, "create a device config with a network mode instead")
 }
 
-func (h Configs) CreateUserProfile(ctx context.Context, req *api.CreateUserProfileRequest) (*api.CreateProfileResponse, error) {
-	id, connection, err := h.Service.Create(ctx, req.GetUserId(), req.GetNodeId(), req.GetInbound())
-
-	return &api.CreateProfileResponse{
-		Id:         id,
-		Connection: connection,
-	}, err
+func (h Configs) CreateUserProfile(context.Context, *api.CreateUserProfileRequest) (*api.CreateProfileResponse, error) {
+	return nil, status.Error(codes.FailedPrecondition, "create a device config with a network mode instead")
 }
 
 func (h Configs) DeleteMyProfile(ctx context.Context, req *api.DeleteMyProfileRequest) (*api.DeleteMyProfileResponse, error) {
@@ -100,7 +92,7 @@ func (h Configs) GetDefaultSubscriptionLink(ctx context.Context, _ *api.GetSubsc
 func (h Configs) CreateMyDevice(ctx context.Context, req *api.CreateDeviceRequest) (*api.Device, error) {
 	u, _ := usercontext.User(ctx)
 
-	device, err := h.Service.CreateDevice(ctx, u.ID, req.GetName())
+	device, err := h.Service.CreateDevice(ctx, u.ID, req.GetName(), req.GetDefaultNetwork())
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +102,7 @@ func (h Configs) CreateMyDevice(ctx context.Context, req *api.CreateDeviceReques
 		return nil, err
 	}
 
-	return &api.Device{Id: device.ID, Name: device.Name, Url: url}, nil
+	return &api.Device{Id: device.ID, Name: device.Name, Url: url, DefaultNetwork: device.DefaultNetwork}, nil
 }
 
 func (h Configs) ListMyDevices(ctx context.Context, _ *api.ListDevicesRequest) (*api.ListDevicesResponse, error) {
@@ -128,7 +120,7 @@ func (h Configs) ListMyDevices(ctx context.Context, _ *api.ListDevicesRequest) (
 			return nil, urlErr
 		}
 
-		resp.Devices = append(resp.Devices, &api.Device{Id: device.ID, Name: device.Name, Url: url, Hwid: device.HWID})
+		resp.Devices = append(resp.Devices, &api.Device{Id: device.ID, Name: device.Name, Url: url, Hwid: device.HWID, DefaultNetwork: device.DefaultNetwork})
 	}
 
 	return resp, nil

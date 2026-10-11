@@ -1,8 +1,8 @@
 package happ
 
 var subMetadata = Metadata{
-	Title:            "💤💤💤",
-	Announcement:     "Должно работать все но медленно",
+	Title:            "ARIWKA VPN",
+	Announcement:     "Умная маршрутизация",
 	UpdateInterval:   1,
 	SupportURL:       "https://t.me/kydimik",
 	PingOnOpen:       true,

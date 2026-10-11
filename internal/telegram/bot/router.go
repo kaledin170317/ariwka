@@ -57,7 +57,7 @@ func (b telegram) handle(ctx context.Context, u update) error {
 		case "/profiles":
 			data = "profiles"
 		case "/configs":
-			data = "p:list:0"
+			data = "p:devices"
 		case "/create":
 			data = "p:create"
 		}
@@ -69,7 +69,7 @@ func (b telegram) handle(ctx context.Context, u update) error {
 	case "Профили":
 		data = "profiles"
 	case "Список профилей":
-		data = "p:list:0"
+		data = "p:devices"
 	case "Создать профиль":
 		data = "p:create"
 	}
@@ -98,7 +98,7 @@ func (b telegram) action(ctx context.Context, userID, chat, id int64, data strin
 	case data == "profiles":
 		view = profiles.Menu()
 	case data == "p:create":
-		view, err = p.NodesList(requestCtx)
+		view = profiles.CreateMode()
 	case data == "p:subscription":
 		view, err = p.Subscription(requestCtx)
 	case data == "p:default":
@@ -106,7 +106,11 @@ func (b telegram) action(ctx context.Context, userID, chat, id int64, data strin
 	case data == "p:devices":
 		view, err = p.Devices(requestCtx)
 	case data == "p:device:new":
-		view, err = p.CreateDevice(requestCtx)
+		view = profiles.CreateMode()
+	case data == "p:device:new:routed":
+		view, err = p.CreateDevice(requestCtx, false)
+	case data == "p:device:new:default":
+		view, err = p.CreateDevice(requestCtx, true)
 	case strings.HasPrefix(data, "p:device:delete:"):
 		view, err = p.DeleteDevice(requestCtx, strings.TrimPrefix(data, "p:device:delete:"))
 	case strings.HasPrefix(data, "p:device:"):
@@ -120,15 +124,6 @@ func (b telegram) action(ctx context.Context, userID, chat, id int64, data strin
 		}
 	case strings.HasPrefix(data, "p:delete:"):
 		view, err = p.Delete(requestCtx, strings.TrimPrefix(data, "p:delete:"))
-	case strings.HasPrefix(data, "p:node:"):
-		view, err = p.Inbounds(requestCtx, strings.TrimPrefix(data, "p:node:"))
-	case strings.HasPrefix(data, "p:new:"):
-		parts := strings.SplitN(strings.TrimPrefix(data, "p:new:"), ":", 2)
-		if len(parts) != 2 {
-			view = profiles.Menu()
-		} else {
-			view, err = p.Create(requestCtx, parts[0], parts[1])
-		}
 	default:
 		view = screens.Home()
 	}

@@ -9,20 +9,12 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	api "vpn/gen/control"
-	common "vpn/gen/vpn/common"
 )
-
-var transportNames = map[common.VlessTransportType]string{
-	common.VlessTransportType_VLESS_TRANSPORT_TYPE_GRPC: "grpc",
-	common.VlessTransportType_VLESS_TRANSPORT_TYPE_HTTP: "http",
-}
 
 type Control struct {
 	conn     *grpc.ClientConn
 	auth     api.AuthServiceClient
 	configs  api.ConfigServiceClient
-	nodes    api.NodeServiceClient
-	inbounds api.NodeInboundServiceClient
 	username string
 	password string
 }
@@ -32,26 +24,17 @@ type User struct {
 	token   string
 }
 
-type Node struct {
-	ID   string
-	Name string
-}
-
-type Inbound struct {
-	Tag  string
-	Type string
-}
-
 type Profile struct {
 	ID         string
 	Connection string
 }
 
 type Device struct {
-	ID   string
-	Name string
-	URL  string
-	HWID string
+	ID             string
+	Name           string
+	URL            string
+	HWID           string
+	DefaultNetwork bool
 }
 
 func Open(address, username, password string) (Control, error) {
@@ -64,8 +47,6 @@ func Open(address, username, password string) (Control, error) {
 		conn:     conn,
 		auth:     api.NewAuthServiceClient(conn),
 		configs:  api.NewConfigServiceClient(conn),
-		nodes:    api.NewNodeServiceClient(conn),
-		inbounds: api.NewNodeInboundServiceClient(conn),
 		username: username,
 		password: password,
 	}, nil
@@ -135,82 +116,24 @@ func (u User) Devices(ctx context.Context) ([]Device, error) {
 
 	devices := make([]Device, 0, len(resp.GetDevices()))
 	for _, d := range resp.GetDevices() {
-		devices = append(devices, Device{ID: d.GetId(), Name: d.GetName(), URL: d.GetUrl(), HWID: d.GetHwid()})
+		devices = append(devices, Device{ID: d.GetId(), Name: d.GetName(), URL: d.GetUrl(), HWID: d.GetHwid(), DefaultNetwork: d.GetDefaultNetwork()})
 	}
 
 	return devices, nil
 }
 
-func (u User) CreateDevice(ctx context.Context, name string) (Device, error) {
-	d, err := u.control.configs.CreateMyDevice(u.context(ctx), &api.CreateDeviceRequest{Name: name})
+func (u User) CreateDevice(ctx context.Context, name string, defaultNetwork bool) (Device, error) {
+	d, err := u.control.configs.CreateMyDevice(u.context(ctx), &api.CreateDeviceRequest{Name: name, DefaultNetwork: defaultNetwork})
 	if err != nil {
 		return Device{}, err
 	}
 
-	return Device{ID: d.GetId(), Name: d.GetName(), URL: d.GetUrl()}, nil
+	return Device{ID: d.GetId(), Name: d.GetName(), URL: d.GetUrl(), DefaultNetwork: d.GetDefaultNetwork()}, nil
 }
 
 func (u User) DeleteDevice(ctx context.Context, id string) error {
 	_, err := u.control.configs.DeleteMyDevice(u.context(ctx), &api.DeleteDeviceRequest{Id: id})
 	return err
-}
-
-func (u User) Nodes(ctx context.Context) ([]Node, error) {
-	resp, err := u.control.nodes.List(u.context(ctx), &api.ListNodesRequest{})
-	if err != nil {
-		return nil, err
-	}
-
-	nodes := make([]Node, 0, len(resp.GetNodes()))
-	for _, node := range resp.GetNodes() {
-		nodes = append(nodes, Node{ID: node.GetId(), Name: node.GetName()})
-	}
-
-	return nodes, nil
-}
-
-func (u User) Inbounds(ctx context.Context, nodeID string) ([]Inbound, error) {
-	resp, err := u.control.inbounds.List(u.context(ctx), &api.ListNodeInboundsRequest{})
-	if err != nil {
-		return nil, err
-	}
-
-	inbounds := make([]Inbound, 0, len(resp.GetInbounds()))
-	for _, item := range resp.GetInbounds() {
-		if item.GetNodeId() != nodeID {
-			continue
-		}
-
-		inbound := item.GetInbound()
-		if inbound.GetNetwork() == common.InboundNetwork_INBOUND_NETWORK_INTERNAL ||
-			inbound.GetNetwork() == common.InboundNetwork_INBOUND_NETWORK_DEFAULT {
-			continue
-		}
-
-		if inbound.GetHysteria2() != nil {
-			inbounds = append(inbounds, Inbound{Tag: inbound.GetTag(), Type: "hysteria2"})
-		}
-
-		if v := inbound.GetVless(); v != nil {
-			kind := "vless"
-			if name := transportNames[v.GetTransport().GetType()]; name != "" {
-				kind += "/" + name
-			}
-
-			inbounds = append(inbounds, Inbound{Tag: inbound.GetTag(), Type: kind})
-		}
-	}
-
-	return inbounds, nil
-}
-
-func (u User) CreateProfile(ctx context.Context, nodeID, tag string) (string, error) {
-	resp, err := u.control.configs.CreateMyProfile(u.context(ctx), &api.CreateMyProfileRequest{NodeId: nodeID, Inbound: tag})
-	if err != nil {
-		return "", err
-	}
-
-	return resp.GetConnection(), nil
 }
 
 func (u User) DeleteProfile(ctx context.Context, id string) error {

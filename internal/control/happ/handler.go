@@ -18,7 +18,7 @@ import (
 
 type Profiles interface {
 	GetSubscription(context.Context, string, bool) ([]string, error)
-	DeviceSubscription(context.Context, string, string) ([]string, error)
+	DeviceSubscription(context.Context, string, string) ([]string, bool, error)
 }
 
 type Users interface {
@@ -76,7 +76,7 @@ func (h DeviceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	connections, err := h.Profiles.DeviceSubscription(r.Context(), id, hwids[0])
+	connections, defaultNetwork, err := h.Profiles.DeviceSubscription(r.Context(), id, hwids[0])
 	if errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
 		return
@@ -95,7 +95,13 @@ func (h DeviceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("X-HWID-Active", "true")
 	w.Header().Set("Subscription-Always-HWID-Enable", "1")
-	writeSubscription(w, h.Metadata, connections, usage)
+
+	metadata := h.Metadata
+	if defaultNetwork {
+		metadata = defaultMetadata
+	}
+
+	writeSubscription(w, metadata, connections, usage)
 }
 
 func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

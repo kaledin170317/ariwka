@@ -1,7 +1,7 @@
 package happ
 
 var defaultMetadata = Metadata{
-	Title:            "💤💤💤",
+	Title:            "ARIWKA VPN",
 	Announcement:     "Прямое подключение через выбранную ноду",
 	UpdateInterval:   1,
 	SupportURL:       "https://t.me/kydimik",

@@ -15,7 +15,7 @@ import (
 	nodemodel "vpn/internal/control/node/model"
 )
 
-func (s Service) CreateDevice(ctx context.Context, userID, name string) (model.Device, error) {
+func (s Service) CreateDevice(ctx context.Context, userID, name string, defaultNetwork bool) (model.Device, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len([]rune(name)) > 64 {
 		return model.Device{}, errors.New("device name required (max 64 characters)")
@@ -29,7 +29,7 @@ func (s Service) CreateDevice(ctx context.Context, userID, name string) (model.D
 		return model.Device{}, err
 	}
 
-	device := model.Device{ID: uuid.NewString(), UserID: userID, Name: name}
+	device := model.Device{ID: uuid.NewString(), UserID: userID, Name: name, DefaultNetwork: defaultNetwork}
 
 	err = s.Repo.CreateDevice(ctx, device)
 	if err != nil {
@@ -72,44 +72,44 @@ func (s Service) DeleteDevice(ctx context.Context, userID, id string) error {
 	return s.Repo.DeleteDevice(ctx, userID, id)
 }
 
-func (s Service) DeviceSubscription(ctx context.Context, id, hwid string) ([]string, error) {
+func (s Service) DeviceSubscription(ctx context.Context, id, hwid string) ([]string, bool, error) {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 
 	device, err := s.Repo.GetDevice(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if hwid == "" || device.HWID != "" && device.HWID != hwid {
-		return nil, sql.ErrNoRows
+		return nil, false, sql.ErrNoRows
 	}
 
 	err = s.syncDevice(ctx, device)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	profiles, err := s.Repo.ListByDevice(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	links := make([]string, 0, len(profiles))
 	for _, profile := range profiles {
 		node, getErr := s.Nodes.Get(profile.NodeID)
 		if getErr != nil {
-			return nil, getErr
+			return nil, false, getErr
 		}
 
 		inbound, getErr := s.inbound(ctx, profile.NodeID, profile.Inbound)
 		if getErr != nil {
-			return nil, getErr
+			return nil, false, getErr
 		}
 
 		link, linkErr := node.Link(inbound, profile.ID)
 		if linkErr != nil {
-			return nil, linkErr
+			return nil, false, linkErr
 		}
 
 		links = append(links, link)
@@ -117,14 +117,14 @@ func (s Service) DeviceSubscription(ctx context.Context, id, hwid string) ([]str
 
 	bound, err := s.Repo.BindDevice(ctx, id, hwid)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if !bound {
-		return nil, sql.ErrNoRows
+		return nil, false, sql.ErrNoRows
 	}
 
-	return links, nil
+	return links, device.DefaultNetwork, nil
 }
 
 func (s Service) syncDevice(ctx context.Context, device model.Device) error {
@@ -155,7 +155,11 @@ func (s Service) syncDevice(ctx context.Context, device model.Device) error {
 		}
 
 		for _, inbound := range inbounds {
-			if inbound.Network != nodemodel.InboundNetworkUsers {
+			if device.DefaultNetwork {
+				if inbound.Tag != "default:"+n.ID || inbound.Vless == nil {
+					continue
+				}
+			} else if inbound.Network != nodemodel.InboundNetworkUsers {
 				continue
 			}
 

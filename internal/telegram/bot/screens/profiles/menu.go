@@ -11,13 +11,10 @@ type Service struct {
 
 func Menu() screens.View {
 	return screens.View{
-		Text: "Профили. Выбери действие:",
+		Text: "Конфиги. Выбери действие:",
 		Buttons: [][]screens.Button{
-			{{Text: "Список профилей", Data: "p:list:0"}},
-			{{Text: "Создать профиль", Data: "p:create"}},
-			{{Text: "Устройства (подписка с маршрутизацией)", Data: "p:devices"}},
-			{{Text: "Подписка Happ", Data: "p:subscription"}},
-			{{Text: "Подписка без маршрутизации", Data: "p:default"}},
+			{{Text: "Мои конфиги", Data: "p:devices"}},
+			{{Text: "Создать конфиг", Data: "p:create"}},
 			{{Text: "← Главная", Data: "home"}},
 		},
 	}
