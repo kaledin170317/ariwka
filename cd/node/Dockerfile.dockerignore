@@ -1,0 +1,11 @@
+*
+!go.mod
+!go.sum
+!cmd/
+!cmd/node/
+!cmd/node/**
+!internal/
+!internal/node/
+!internal/node/xray/
+!internal/node/xray/proxy/
+!internal/node/xray/proxy/**

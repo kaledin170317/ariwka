@@ -1,10 +1,9 @@
 version: "3"
 
 vars:
-  INVENTORY: cd/ansible/inventory.ini
-  NODE_PLAYBOOK: cd/ansible/node.yml
-  CONTROL_PLAYBOOK: cd/ansible/control.yml
-  TELEGRAM_PLAYBOOK: cd/ansible/telegram.yml
+  INVENTORY: cd/inventory.ini
+  NODE_PLAYBOOK: cd/node/playbook.yml
+  CONTROL_PLAYBOOK: cd/control/playbook.yml
 
 tasks:
   lint:
@@ -14,37 +13,83 @@ tasks:
         ignore_error: true
       - golangci-lint run ./...
 
-  setup:
-    desc: Setup nodes
-    deps: [build]
+  publish:
+    desc: Build and push all images in parallel
+    deps: [xray-publish, node-publish, control-publish, telegram-publish]
+
+  init:
+    desc: Initialize nodes, then control and Telegram
     cmds:
-      - task: build-migrate
-      - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}}  --tags setup
-      - ansible-playbook -i {{.INVENTORY}} {{.CONTROL_PLAYBOOK}}  --tags setup
-      - ansible-playbook -i {{.INVENTORY}} {{.TELEGRAM_PLAYBOOK}} --tags setup
+      - task: node-init
+      - task: control-init
 
   deploy:
-    desc: Build and deploy nodes
-    deps: [build]
-    cmds:
-      - task: build-migrate
-      - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}} --tags deploy
-      - ansible-playbook -i {{.INVENTORY}} {{.CONTROL_PLAYBOOK}} --tags deploy
-      - ansible-playbook -i {{.INVENTORY}} {{.TELEGRAM_PLAYBOOK}} --tags deploy
-      -
-  init:
-    desc: Init nodes
-    cmds:
-      - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}}  --tags init
+    desc: Update nodes and control in parallel
+    deps: [nodes-deploy, control-deploy]
 
+  nodes-deploy:
+    desc: Update Xray, then node on both nodes
+    cmds:
+      - task: xray-deploy
+      - task: node-deploy
+
+  node-init:
+    desc: Install and start Xray and node on the nodes
+    dotenv: ['.env.node']
+    cmds:
+      - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}} --tags init
+
+  node-deploy:
+    desc: Pull and update only the node container when changed
+    dotenv: ['.env.node']
+    cmds:
+      - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}} --tags deploy
+
+  xray-deploy:
+    desc: Update only Xray when its image changes
+    dotenv: ['.env.node']
+    cmds:
+      - ansible-playbook -i {{.INVENTORY}} {{.NODE_PLAYBOOK}} --tags xray-deploy
+
+  control-init:
+    desc: Migrate control and Telegram from systemd to Compose
+    dotenv: ['.env', '.env.node']
+    cmds:
+      - ansible-playbook -i {{.INVENTORY}} {{.CONTROL_PLAYBOOK}} --tags setup
+
+  control-deploy:
+    desc: Pull control and Telegram; update only changed containers
+    dotenv: ['.env', '.env.node']
+    cmds:
+      - ansible-playbook -i {{.INVENTORY}} {{.CONTROL_PLAYBOOK}} --tags deploy
+
+  control-publish:
+    desc: Build and push the control image to Docker Hub
+    cmds:
+      - docker buildx build --platform linux/amd64 --push -f cd/control/Dockerfile -t kaledin170317/vpn:control-latest .
+
+  telegram-publish:
+    desc: Build and push the Telegram image to Docker Hub
+    cmds:
+      - docker buildx build --platform linux/amd64 --push -f cd/telegram/Dockerfile -t kaledin170317/vpn:telegram-latest .
   build:
-    desc: Build Go binaries
+    desc: Build control and Telegram binaries
     deps: [generate]
     cmds:
       - mkdir -p bin
-      - go build -o bin/node ./cmd/node
       - go build -o bin/control ./cmd/control
       - go build -o bin/telegram ./cmd/telegram
+
+  node-publish:
+    desc: Build and push the node image to Docker Hub
+    cmds:
+      - docker buildx build --platform linux/amd64 --push -f cd/node/Dockerfile -t kaledin170317/vpn:node-latest .
+
+  xray-publish:
+    desc: Build and push Xray and its certificate initializer
+    cmds:
+      - docker buildx build --platform linux/amd64 --push --target cert-init -f cd/node/Dockerfile.xray -t kaledin170317/vpn:xray-certs-latest .
+      - docker buildx build --platform linux/amd64 --push --target xray -f cd/node/Dockerfile.xray -t kaledin170317/vpn:xray-latest .
 
   generate:
     desc: Generate code
@@ -65,12 +110,6 @@ tasks:
     internal: true
     cmds:
       - go generate ./...
-
-  build-migrate:
-    desc: Build golang-migrate CLI
-    cmds:
-      - mkdir -p bin
-      - GOBIN="$(pwd)/bin" go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.0
 
   clean:
     desc: Clean generated files

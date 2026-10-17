@@ -1,0 +1,127 @@
+- name: Control and Telegram deployment
+  hosts: control
+  become: true
+  gather_facts: false
+  vars:
+    dockerhub_login_token: "{{ lookup('ansible.builtin.env', 'DOCKERHUB_TOKEN') | default(dockerhub_token | default(''), true) }}"
+    compose_env:
+      POSTGRES_PASSWORD: "{{ lookup('ansible.builtin.env', 'POSTGRES_PASSWORD') }}"
+      DATABASE_URL: "{{ lookup('ansible.builtin.env', 'DATABASE_URL') }}"
+      JWT_SECRET: "{{ lookup('ansible.builtin.env', 'JWT_SECRET') }}"
+      TELEGRAM_BOT_TOKEN: "{{ lookup('ansible.builtin.env', 'TELEGRAM_BOT_TOKEN') }}"
+      TELEGRAM_CONTROL_USERNAME: "{{ lookup('ansible.builtin.env', 'TELEGRAM_CONTROL_USERNAME') }}"
+      TELEGRAM_CONTROL_PASSWORD: "{{ lookup('ansible.builtin.env', 'TELEGRAM_CONTROL_PASSWORD') }}"
+      CONTROL_ADDRESS: "{{ lookup('ansible.builtin.env', 'CONTROL_ADDRESS') }}"
+
+  tasks:
+    - name: Check local Compose environment
+      tags: [setup, deploy]
+      ansible.builtin.assert:
+        that:
+          - item.value | length > 0
+        fail_msg: "Set {{ item.key }} in local .env before running this playbook"
+      loop: "{{ compose_env | dict2items }}"
+      no_log: true
+
+    - name: Initialize control server
+      tags: [setup]
+      block:
+        - name: Install Docker and Compose
+          ansible.builtin.apt:
+            name: [ca-certificates, docker.io, docker-compose]
+            update_cache: true
+            state: present
+
+        - name: Start Docker
+          ansible.builtin.systemd_service:
+            name: docker
+            enabled: true
+            state: started
+
+        - name: Create control directories
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: directory
+            mode: "0700"
+          loop:
+            - /var/lib/control
+            - /var/lib/control/certs
+            - /etc/control
+            - /usr/share/control/migrations
+
+        - name: Detect previous host PostgreSQL
+          ansible.builtin.service_facts:
+
+        - name: Stop previous host PostgreSQL
+          ansible.builtin.systemd_service:
+            name: postgresql
+            state: stopped
+            enabled: false
+          when: "'postgresql.service' in ansible_facts.services"
+
+    - name: Update control services
+      tags: [setup, deploy]
+      block:
+        - name: Copy migrations
+          ansible.builtin.copy:
+            src: ../../migrations/control/
+            dest: /usr/share/control/migrations/
+            mode: "0644"
+
+        - name: Copy Compose file
+          ansible.builtin.copy:
+            src: compose.yml
+            dest: /etc/control/compose.yml
+            mode: "0644"
+
+        - name: Log in to Docker Hub for private images
+          ansible.builtin.command:
+            cmd: docker login --username kaledin170317 --password-stdin
+            stdin: "{{ dockerhub_login_token }}"
+          when: dockerhub_login_token | length > 0
+          no_log: true
+
+        - name: Pull control and Telegram images
+          ansible.builtin.command: docker-compose -f /etc/control/compose.yml pull control telegram
+          environment: "{{ compose_env }}"
+          no_log: true
+
+    - name: Start PostgreSQL on first migration
+      tags: [setup]
+      ansible.builtin.command: docker-compose -f /etc/control/compose.yml up -d --no-build --no-recreate --wait postgres
+      environment: "{{ compose_env }}"
+      no_log: true
+
+    - name: Apply database migrations with control image
+      tags: [setup, deploy]
+      ansible.builtin.shell: >-
+        docker-compose -f /etc/control/compose.yml
+        run --rm --no-deps --entrypoint /migrate control
+        -path /migrations -database "$DATABASE_URL" up
+      environment: "{{ compose_env }}"
+      register: migration
+      changed_when: >-
+        'no change' not in migration.stdout | lower and
+        'no change' not in migration.stderr | lower
+      no_log: true
+
+    - name: Stop old host control and Telegram services
+      tags: [setup]
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop: [control, telegram]
+
+    - name: Run application containers
+      tags: [setup, deploy]
+      block:
+        - name: Start control without touching PostgreSQL or Telegram
+          ansible.builtin.command: docker-compose -f /etc/control/compose.yml up -d --no-build --no-deps control
+          environment: "{{ compose_env }}"
+          no_log: true
+
+        - name: Start Telegram without touching PostgreSQL or control
+          ansible.builtin.command: docker-compose -f /etc/control/compose.yml up -d --no-build --no-deps telegram
+          environment: "{{ compose_env }}"
+          no_log: true

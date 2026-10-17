@@ -1,0 +1,10 @@
+FROM alpine:3.22 AS cert-init
+RUN apk add --no-cache openssl
+COPY cd/node/cert-init.sh /usr/local/bin/cert-init
+RUN chmod +x /usr/local/bin/cert-init
+ENTRYPOINT ["/usr/local/bin/cert-init"]
+
+FROM ghcr.io/xtls/xray-core:26.9.9 AS xray
+
+COPY cd/node/xray.json /opt/vpn/xray.json
+CMD ["run", "-c", "/opt/vpn/xray.json"]

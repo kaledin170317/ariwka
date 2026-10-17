@@ -4,3 +4,4 @@ gen/
 buf.lock
 .idea
 .env
+.env.node

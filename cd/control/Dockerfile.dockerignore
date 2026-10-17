@@ -1,0 +1,13 @@
+*
+!go.mod
+!go.sum
+!api/
+!api/**
+!cmd/
+!cmd/control/
+!cmd/control/**
+!internal/
+!internal/control/
+!internal/control/**
+!pkg/
+!pkg/**

@@ -1,0 +1,47 @@
+name: xray
+
+services:
+  cert-init:
+    image: kaledin170317/vpn:xray-certs-latest
+    restart: "no"
+    volumes:
+      - tls-certs:/certs
+
+  xray:
+    image: kaledin170317/vpn:xray-latest
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: 1.5
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - tls-certs:/etc/xray:ro
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+
+  node:
+    image: kaledin170317/vpn:node-latest
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - xray
+
+volumes:
+  tls-certs:
+    name: xray_tls-certs

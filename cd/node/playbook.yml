@@ -1,0 +1,65 @@
+- name: Node deployment
+  hosts: nodes
+  become: true
+  gather_facts: false
+  vars:
+    dockerhub_login_token: "{{ lookup('ansible.builtin.env', 'DOCKERHUB_TOKEN') | default(dockerhub_token | default(''), true) }}"
+
+  tasks:
+    - name: Initialize nodes
+      tags: [init]
+      block:
+        - name: Install Docker and Compose
+          ansible.builtin.apt:
+            name: [ca-certificates, docker.io, docker-compose]
+            update_cache: true
+            state: present
+
+        - name: Start Docker
+          ansible.builtin.systemd_service:
+            name: docker
+            enabled: true
+            state: started
+
+        - name: Create node directory
+          ansible.builtin.file:
+            path: /etc/node
+            state: directory
+            mode: "0755"
+
+    - name: Prepare images
+      tags: [init, deploy, xray-deploy]
+      block:
+        - name: Log in to Docker Hub for private images
+          ansible.builtin.command:
+            cmd: docker login --username kaledin170317 --password-stdin
+            stdin: "{{ dockerhub_login_token }}"
+          when: dockerhub_login_token | length > 0
+          no_log: true
+
+        - name: Copy node Compose file
+          ansible.builtin.copy:
+            src: compose.yml
+            dest: /etc/node/compose.yml
+            mode: "0644"
+
+    - name: Initialize Xray and node
+      tags: [init]
+      ansible.builtin.command: "docker-compose -f /etc/node/compose.yml {{ item }}"
+      loop:
+        - pull cert-init xray node
+        - up -d --no-build
+
+    - name: Update Xray only
+      tags: [xray-deploy]
+      ansible.builtin.command: "docker-compose -f /etc/node/compose.yml {{ item }}"
+      loop:
+        - pull cert-init xray
+        - up -d --no-build xray
+
+    - name: Update node only
+      tags: [deploy]
+      ansible.builtin.command: "docker-compose -f /etc/node/compose.yml {{ item }}"
+      loop:
+        - pull node
+        - up -d --no-build --no-deps node

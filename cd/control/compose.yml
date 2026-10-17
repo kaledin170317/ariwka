@@ -1,0 +1,62 @@
+name: control
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: control
+      POSTGRES_DB: control
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U control -d control"]
+      interval: 5s
+      retries: 12
+
+  control:
+    image: kaledin170317/vpn:control-latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in local .env}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in local .env}
+      SUBSCRIPTION_DOMAIN: ariwka.duckdns.org
+    volumes:
+      - /var/lib/control/certs:/var/lib/control/certs
+      - /usr/share/control/migrations:/migrations:ro
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 1.0
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  telegram:
+    image: kaledin170317/vpn:telegram-latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in local .env}
+      TELEGRAM_CONTROL_USERNAME: ${TELEGRAM_CONTROL_USERNAME:?Set TELEGRAM_CONTROL_USERNAME in local .env}
+      TELEGRAM_CONTROL_PASSWORD: ${TELEGRAM_CONTROL_PASSWORD:?Set TELEGRAM_CONTROL_PASSWORD in local .env}
+      CONTROL_ADDRESS: ${CONTROL_ADDRESS:?Set CONTROL_ADDRESS in local .env}
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres-data:
+    name: control_postgres-data
