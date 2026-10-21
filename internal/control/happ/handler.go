@@ -42,6 +42,10 @@ func DeviceURL(id string) (string, error) {
 	return subscriptionURL(id, "device")
 }
 
+func DeviceJSONURL(id string) (string, error) {
+	return subscriptionURL(id, "device-json")
+}
+
 func subscriptionURL(userID, network string) (string, error) {
 	domain := os.Getenv("SUBSCRIPTION_DOMAIN")
 	if domain == "" {
@@ -55,6 +59,7 @@ type DeviceHandler struct {
 	Profiles Profiles
 	Stats    Stats
 	Metadata Metadata
+	JSON     bool
 }
 
 var hwidPattern = regexp.MustCompile(`^[a-zA-Z0-9=-]{10,64}$`)
@@ -95,6 +100,21 @@ func (h DeviceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("X-HWID-Active", "true")
 	w.Header().Set("Subscription-Always-HWID-Enable", "1")
+	if h.JSON {
+		if defaultNetwork {
+			http.Error(w, "failover JSON requires a routed device", http.StatusUnprocessableEntity)
+			return
+		}
+		body, err := xraySubscription(connections)
+		if err != nil {
+			http.Error(w, "failed to build failover config", http.StatusUnprocessableEntity)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(append(body, '\n'))
+		return
+	}
 
 	metadata := h.Metadata
 	if defaultNetwork {
@@ -145,7 +165,8 @@ func writeSubscription(w http.ResponseWriter, metadata Metadata, connections []s
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 
-	lines := append(metadata.Lines(), "#subscription-userinfo: "+info)
+	lines := append([]string{dnsRoutingLink}, metadata.Lines()...)
+	lines = append(lines, "#subscription-userinfo: "+info)
 	lines = append(lines, connections...)
 	_, _ = w.Write([]byte(strings.Join(lines, "\n") + "\n"))
 }

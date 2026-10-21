@@ -4,6 +4,7 @@ import (
 	"context"
 	"html"
 	"strconv"
+	"strings"
 
 	"vpn/internal/telegram/bot/screens"
 )
@@ -87,8 +88,12 @@ func deviceView(name, url, id, hwid string, defaultNetwork bool) screens.View {
 		mode = "без маршрутизации"
 	}
 
+	text := "Конфиг «" + html.EscapeString(name) + "» (все серверы " + mode + "):\n<code>" + html.EscapeString(url) + "</code>"
+	if !defaultNetwork {
+		text += "\nЭкспериментальный JSON: маршрутизация на нодах и переключение VLESS-нод при отказе (Hysteria2 не входит):\n<code>" + html.EscapeString(strings.Replace(url, "/happ/device/", "/happ/device-json/", 1)) + "</code>"
+	}
 	return screens.View{
-		Text: "Конфиг «" + html.EscapeString(name) + "» (все серверы " + mode + "):\n<code>" + html.EscapeString(url) + "</code>\n" + status,
+		Text: text + "\n" + status,
 		Buttons: [][]screens.Button{
 			{{Text: "Удалить устройство", Data: "p:device:delete:" + id}},
 			{{Text: "← Устройства", Data: "p:devices"}},

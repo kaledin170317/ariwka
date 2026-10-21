@@ -5,3 +5,8 @@ buf.lock
 .idea
 .env
 .env.node
+/openrc.sh
+.terraform/
+*.tfstate*
+*.tfplan
+*.tfvars
