@@ -130,8 +130,8 @@ func (r Postgres) ListByDevice(ctx context.Context, deviceID string) ([]model.Pr
 }
 
 func (r Postgres) CreateDevice(ctx context.Context, d model.Device) error {
-	_, err := builder.Insert("devices").Columns("id", "user_id", "name", "default_network").
-		Values(d.ID, d.UserID, d.Name, d.DefaultNetwork).RunWith(r.DB).ExecContext(ctx)
+	_, err := builder.Insert("devices").Columns("id", "user_id", "name", "default_network", "region").
+		Values(d.ID, d.UserID, d.Name, d.DefaultNetwork, d.Region).RunWith(r.DB).ExecContext(ctx)
 
 	return err
 }
@@ -139,8 +139,8 @@ func (r Postgres) CreateDevice(ctx context.Context, d model.Device) error {
 func (r Postgres) GetDevice(ctx context.Context, id string) (model.Device, error) {
 	var d model.Device
 
-	err := builder.Select("id", "user_id", "name", "COALESCE(hwid, '')", "default_network").From("devices").Where(sq.Eq{"id": id}).
-		RunWith(r.DB).QueryRowContext(ctx).Scan(&d.ID, &d.UserID, &d.Name, &d.HWID, &d.DefaultNetwork)
+	err := builder.Select("id", "user_id", "name", "COALESCE(hwid, '')", "default_network", "region").From("devices").Where(sq.Eq{"id": id}).
+		RunWith(r.DB).QueryRowContext(ctx).Scan(&d.ID, &d.UserID, &d.Name, &d.HWID, &d.DefaultNetwork, &d.Region)
 
 	return d, err
 }
@@ -159,7 +159,7 @@ func (r Postgres) BindDevice(ctx context.Context, id, hwid string) (bool, error)
 }
 
 func (r Postgres) ListDevices(ctx context.Context, userID string) ([]model.Device, error) {
-	rows, err := builder.Select("id", "user_id", "name", "COALESCE(hwid, '')", "default_network").From("devices").
+	rows, err := builder.Select("id", "user_id", "name", "COALESCE(hwid, '')", "default_network", "region").From("devices").
 		Where(sq.Eq{"user_id": userID}).OrderBy("name", "id").RunWith(r.DB).QueryContext(ctx)
 	if err != nil {
 		return nil, err
@@ -171,7 +171,7 @@ func (r Postgres) ListDevices(ctx context.Context, userID string) ([]model.Devic
 	for rows.Next() {
 		var d model.Device
 
-		err = rows.Scan(&d.ID, &d.UserID, &d.Name, &d.HWID, &d.DefaultNetwork)
+		err = rows.Scan(&d.ID, &d.UserID, &d.Name, &d.HWID, &d.DefaultNetwork, &d.Region)
 		if err != nil {
 			return nil, err
 		}

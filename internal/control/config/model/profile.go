@@ -15,6 +15,7 @@ type Device struct {
 	Name           string
 	HWID           string
 	DefaultNetwork bool
+	Region         string
 }
 
 type Connection struct {

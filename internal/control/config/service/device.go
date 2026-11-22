@@ -29,7 +29,7 @@ func (s Service) CreateDevice(ctx context.Context, userID, name string, defaultN
 		return model.Device{}, err
 	}
 
-	device := model.Device{ID: uuid.NewString(), UserID: userID, Name: name, DefaultNetwork: defaultNetwork}
+	device := model.Device{ID: uuid.NewString(), UserID: userID, Name: name, DefaultNetwork: defaultNetwork, Region: "RU"}
 
 	err = s.Repo.CreateDevice(ctx, device)
 	if err != nil {
@@ -125,6 +125,36 @@ func (s Service) DeviceSubscription(ctx context.Context, id, hwid string) ([]str
 	}
 
 	return links, device.DefaultNetwork, nil
+}
+
+// DeviceRouting describes only profiles belonging to this device. Call after
+// DeviceSubscription has verified and bound the requesting HWID.
+func (s Service) DeviceRouting(ctx context.Context, id string) (string, map[string]string, error) {
+	device, err := s.Repo.GetDevice(ctx, id)
+	if err != nil {
+		return "", nil, err
+	}
+	profiles, err := s.Repo.ListByDevice(ctx, id)
+	if err != nil {
+		return "", nil, err
+	}
+	nodes, err := s.Nodes.List(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	countries := make(map[string]string, len(nodes))
+	for _, node := range nodes {
+		countries[node.ID] = node.Country
+	}
+	byProfile := make(map[string]string, len(profiles))
+	for _, profile := range profiles {
+		country := countries[profile.NodeID]
+		if country == "" {
+			return "", nil, fmt.Errorf("missing country for node %s", profile.NodeID)
+		}
+		byProfile[profile.ID] = country
+	}
+	return device.Region, byProfile, nil
 }
 
 func (s Service) syncDevice(ctx context.Context, device model.Device) error {

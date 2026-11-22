@@ -22,6 +22,9 @@ message RoutePolicy {
   NodeFilter target = 6;
   string rule_file = 7;
   string rule_code = 8;
+  // When omitted by older clients, policies remain node-only.
+  optional bool apply_to_nodes = 9;
+  optional bool apply_to_clients = 10;
 }
 
 message CreateRoutePolicyRequest { RoutePolicy policy = 1; }

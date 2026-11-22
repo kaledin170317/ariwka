@@ -120,7 +120,7 @@ func main() {
 	reflection.Register(grpcServer)
 
 	go func() {
-		log.Fatal(happ.Serve(os.Getenv("SUBSCRIPTION_DOMAIN"), configs, users, stats))
+		log.Fatal(happ.Serve(os.Getenv("SUBSCRIPTION_DOMAIN"), configs, users, stats, routes))
 	}()
 
 	listener, err := net.Listen("tcp", ":9092")

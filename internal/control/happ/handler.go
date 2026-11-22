@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	routingmodel "vpn/internal/control/routing/model"
 	statsmodel "vpn/internal/control/stats/model"
 	"vpn/internal/control/user/model"
 )
@@ -19,6 +20,11 @@ import (
 type Profiles interface {
 	GetSubscription(context.Context, string, bool) ([]string, error)
 	DeviceSubscription(context.Context, string, string) ([]string, bool, error)
+	DeviceRouting(context.Context, string) (string, map[string]string, error)
+}
+
+type ClientRoutes interface {
+	ClientRules(context.Context, string) (routingmodel.ClientRouting, error)
 }
 
 type Users interface {
@@ -60,9 +66,13 @@ type DeviceHandler struct {
 	Stats    Stats
 	Metadata Metadata
 	JSON     bool
+	Routes   ClientRoutes
 }
 
 var hwidPattern = regexp.MustCompile(`^[a-zA-Z0-9=-]{10,64}$`)
+
+// End of 17 March 1703 UTC. Subscription metadata only, not an access check.
+const jsonSubscriptionExpiry int64 = -8419161601
 
 func (h DeviceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("deviceID")
@@ -105,12 +115,32 @@ func (h DeviceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "failover JSON requires a routed device", http.StatusUnprocessableEntity)
 			return
 		}
-		body, err := xraySubscription(connections)
+		region, countries, err := h.Profiles.DeviceRouting(r.Context(), id)
+		if err != nil || region == "" {
+			http.Error(w, "failed to load device region", http.StatusBadGateway)
+			return
+		}
+		rules, err := h.Routes.ClientRules(r.Context(), region)
+		if err != nil {
+			http.Error(w, "failed to load routing policies", http.StatusBadGateway)
+			return
+		}
+		body, err := xraySubscription(connections, region, countries, rules.Rules)
 		if err != nil {
 			http.Error(w, "failed to build failover config", http.StatusUnprocessableEntity)
 			return
 		}
+		routingLink, err := geoRoutingLink(rules.GeoIPURL, rules.GeoSiteURL)
+		if err != nil {
+			http.Error(w, "failed to build routing profile", http.StatusUnprocessableEntity)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Profile-Title", h.Metadata.Title)
+		w.Header().Set("Subscription-Userinfo", fmt.Sprintf("%s; expire=%d", subscriptionInfo(usage), jsonSubscriptionExpiry))
+		if routingLink != "" {
+			w.Header().Set("Routing", routingLink)
+		}
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write(append(body, '\n'))
 		return
@@ -160,7 +190,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeSubscription(w http.ResponseWriter, metadata Metadata, connections []string, usage statsmodel.Usage) {
-	info := fmt.Sprintf("upload=%d; download=%d; total=0", usage.Uploaded, usage.Downloaded)
+	info := subscriptionInfo(usage)
 	w.Header().Set("Subscription-Userinfo", info)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
@@ -169,4 +199,8 @@ func writeSubscription(w http.ResponseWriter, metadata Metadata, connections []s
 	lines = append(lines, "#subscription-userinfo: "+info)
 	lines = append(lines, connections...)
 	_, _ = w.Write([]byte(strings.Join(lines, "\n") + "\n"))
+}
+
+func subscriptionInfo(usage statsmodel.Usage) string {
+	return fmt.Sprintf("upload=%d; download=%d; total=0", usage.Uploaded, usage.Downloaded)
 }

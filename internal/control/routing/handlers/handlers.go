@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"google.golang.org/protobuf/proto"
+
 	api "vpn/gen/control"
 	"vpn/internal/control/routing/model"
 	"vpn/internal/control/routing/service"
@@ -29,7 +31,26 @@ func (h Handler) Update(ctx context.Context, req *api.UpdateRoutePolicyRequest) 
 		return nil, errors.New("route policy required")
 	}
 
-	err := h.Service.Update(ctx, policyFromProto(req.GetPolicy()))
+	policy := policyFromProto(req.GetPolicy())
+	if req.GetPolicy().ApplyToNodes == nil || req.GetPolicy().ApplyToClients == nil {
+		policies, err := h.Service.List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, current := range policies {
+			if current.Tag != policy.Tag {
+				continue
+			}
+			if req.GetPolicy().ApplyToNodes == nil {
+				policy.ApplyToNodes = current.ApplyToNodes
+			}
+			if req.GetPolicy().ApplyToClients == nil {
+				policy.ApplyToClients = current.ApplyToClients
+			}
+			break
+		}
+	}
+	err := h.Service.Update(ctx, policy)
 
 	return &api.UpdateRoutePolicyResponse{}, err
 }
@@ -48,9 +69,11 @@ func (h Handler) List(ctx context.Context, _ *api.ListRoutePoliciesRequest) (*ap
 	resp := &api.ListRoutePoliciesResponse{Policies: make([]*api.RoutePolicy, 0, len(policies))}
 	for _, p := range policies {
 		resp.Policies = append(resp.Policies, &api.RoutePolicy{
-			Tag:      p.Tag,
-			RuleFile: p.RuleFile,
-			RuleCode: p.RuleCode,
+			Tag:            p.Tag,
+			RuleFile:       p.RuleFile,
+			RuleCode:       p.RuleCode,
+			ApplyToNodes:   proto.Bool(p.ApplyToNodes),
+			ApplyToClients: proto.Bool(p.ApplyToClients),
 			Source: &api.NodeFilter{
 				Country:    p.Source.Country,
 				NotCountry: p.Source.NotCountry,
@@ -66,10 +89,16 @@ func (h Handler) List(ctx context.Context, _ *api.ListRoutePoliciesRequest) (*ap
 }
 
 func policyFromProto(p *api.RoutePolicy) model.Policy {
+	applyToNodes := true
+	if p.ApplyToNodes != nil {
+		applyToNodes = p.GetApplyToNodes()
+	}
 	return model.Policy{
-		Tag:      p.GetTag(),
-		RuleFile: p.GetRuleFile(),
-		RuleCode: p.GetRuleCode(),
+		Tag:            p.GetTag(),
+		RuleFile:       p.GetRuleFile(),
+		RuleCode:       p.GetRuleCode(),
+		ApplyToNodes:   applyToNodes,
+		ApplyToClients: p.GetApplyToClients(),
 		Source: model.Filter{
 			Country:    p.GetSource().GetCountry(),
 			NotCountry: p.GetSource().GetNotCountry(),

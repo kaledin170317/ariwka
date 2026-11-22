@@ -128,7 +128,7 @@ func (s *Service) Sync(ctx context.Context) error {
 	sets := make(map[fileCode]rulefilesprovider.Data)
 
 	for _, policy := range policies {
-		if !policy.Active || policy.RuleFile == "" {
+		if !policy.Active || !policy.ApplyToNodes || policy.RuleFile == "" {
 			continue
 		}
 
@@ -215,7 +215,7 @@ func (s *Service) syncNode(ctx context.Context, source nodemodel.Node, nodes []n
 	// Set matches precede the catch-all routes, just as in the old policy engine.
 	for _, hasSet := range []bool{true, false} {
 		for _, policy := range policies {
-			if !policy.Active || (policy.RuleFile != "") != hasSet || !matches(policy.Source, source.Country) {
+			if !policy.Active || !policy.ApplyToNodes || (policy.RuleFile != "") != hasSet || !matches(policy.Source, source.Country) {
 				continue
 			}
 
@@ -333,6 +333,9 @@ func (s Service) checkRuleFile(ctx context.Context, tag string) error {
 func validatePolicy(p model.Policy) error {
 	if p.Tag == "" || len(p.Tag) > 120 || strings.ContainsAny(p.Tag, " \t\n") {
 		return errors.New("route tag required without whitespace (max 120 characters)")
+	}
+	if p.ApplyToClients && p.RuleFile == "" {
+		return errors.New("client policies require a rule file; the VPN fallback is configured separately")
 	}
 
 	if (p.RuleFile == "") != (p.RuleCode == "") || len(p.RuleCode) > 120 || strings.ContainsAny(p.RuleCode, " \t\n") {

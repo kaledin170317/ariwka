@@ -17,12 +17,13 @@ var builder = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 func (r Postgres) Create(ctx context.Context, p model.Policy) error {
 	result, err := builder.
 		Insert("routing_policies").
-		Columns("tag", "rule_file", "rule_code", "source_country", "source_not_country", "target_country", "target_not_country", "active").
-		Values(p.Tag, p.RuleFile, p.RuleCode, p.Source.Country, p.Source.NotCountry, p.Target.Country, p.Target.NotCountry, true).
+		Columns("tag", "rule_file", "rule_code", "source_country", "source_not_country", "target_country", "target_not_country", "active", "apply_to_nodes", "apply_to_clients").
+		Values(p.Tag, p.RuleFile, p.RuleCode, p.Source.Country, p.Source.NotCountry, p.Target.Country, p.Target.NotCountry, true, p.ApplyToNodes, p.ApplyToClients).
 		Suffix(`ON CONFLICT (tag) DO UPDATE SET
 			rule_file = EXCLUDED.rule_file, rule_code = EXCLUDED.rule_code,
 			source_country = EXCLUDED.source_country, source_not_country = EXCLUDED.source_not_country,
-			target_country = EXCLUDED.target_country, target_not_country = EXCLUDED.target_not_country, active = TRUE
+			target_country = EXCLUDED.target_country, target_not_country = EXCLUDED.target_not_country,
+			apply_to_nodes = EXCLUDED.apply_to_nodes, apply_to_clients = EXCLUDED.apply_to_clients, active = TRUE
 			WHERE NOT routing_policies.active`).
 		RunWith(r.DB).
 		ExecContext(ctx)
@@ -51,6 +52,8 @@ func (r Postgres) Update(ctx context.Context, p model.Policy) error {
 		Set("source_not_country", p.Source.NotCountry).
 		Set("target_country", p.Target.Country).
 		Set("target_not_country", p.Target.NotCountry).
+		Set("apply_to_nodes", p.ApplyToNodes).
+		Set("apply_to_clients", p.ApplyToClients).
 		Where(sq.Eq{"tag": p.Tag, "active": true}).
 		RunWith(r.DB).
 		ExecContext(ctx)
@@ -95,7 +98,7 @@ func (r Postgres) Delete(ctx context.Context, tag string) error {
 
 func (r Postgres) List(ctx context.Context) ([]model.Policy, error) {
 	rows, err := builder.
-		Select("tag", "rule_file", "rule_code", "source_country", "source_not_country", "target_country", "target_not_country", "active").
+		Select("tag", "rule_file", "rule_code", "source_country", "source_not_country", "target_country", "target_not_country", "active", "apply_to_nodes", "apply_to_clients").
 		From("routing_policies").
 		OrderBy("tag").
 		RunWith(r.DB).
@@ -111,7 +114,7 @@ func (r Postgres) List(ctx context.Context) ([]model.Policy, error) {
 		var p model.Policy
 
 		err = rows.Scan(&p.Tag, &p.RuleFile, &p.RuleCode,
-			&p.Source.Country, &p.Source.NotCountry, &p.Target.Country, &p.Target.NotCountry, &p.Active)
+			&p.Source.Country, &p.Source.NotCountry, &p.Target.Country, &p.Target.NotCountry, &p.Active, &p.ApplyToNodes, &p.ApplyToClients)
 		if err != nil {
 			return nil, err
 		}
