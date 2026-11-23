@@ -73,12 +73,10 @@ tasks:
     cmds:
       - docker buildx build --platform linux/amd64 --push -f cd/telegram/Dockerfile -t kaledin170317/vpn:telegram-latest .
   build:
-    desc: Build control and Telegram binaries
-    deps: [generate]
+    desc: Build control and Telegram binaries in Docker
     cmds:
-      - mkdir -p bin
-      - go build -o bin/control ./cmd/control
-      - go build -o bin/telegram ./cmd/telegram
+      - docker build --file cd/control/Dockerfile --target binary --output type=local,dest=. .
+      - docker build --file cd/telegram/Dockerfile --target binary --output type=local,dest=. .
 
   node-publish:
     desc: Build and push the node image to Docker Hub

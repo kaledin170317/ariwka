@@ -16,6 +16,9 @@ RUN mkdir -p gen \
         api/control/*.proto api/vpn/common/*.proto \
     && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /telegram ./cmd/telegram
 
+FROM scratch AS binary
+COPY --from=build /telegram /bin/telegram
+
 FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /telegram /telegram

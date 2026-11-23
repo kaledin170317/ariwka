@@ -19,6 +19,9 @@ RUN mkdir -p gen \
     && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /control ./cmd/control \
     && CGO_ENABLED=0 go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.0
 
+FROM scratch AS binary
+COPY --from=build /control /bin/control
+
 FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /control /control
